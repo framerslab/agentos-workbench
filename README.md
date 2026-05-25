@@ -14,7 +14,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[Website](https://agentos.sh) · [Docs](https://docs.agentos.sh) · [GitHub](https://github.com/framersai/agentos) · [Discord](https://discord.gg/usEkfCeQxs) · [npm](https://www.npmjs.com/package/@framers/agentos)
+[Website](https://agentos.sh) · [Docs](https://docs.agentos.sh) · [GitHub](https://github.com/framersai/agentos) · [Discord](https://wilds.ai/discord) · [npm](https://www.npmjs.com/package/@framers/agentos)
 
 </div>
 
