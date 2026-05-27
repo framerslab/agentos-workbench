@@ -1,13 +1,24 @@
 [
   {
-    "id": "forge-mnq00502-uxvry",
+    "id": "forge-mpakik2z-i7irb",
     "name": "btc_price_retriever",
-    "description": "A tool that fetches the current price of any cryptocurrency from CoinGecko",
-    "implementation": "// Generated demo CoinGecko price tool for: A tool that fetches the current price of any cryptocurrency from CoinGecko\nasync function run(params) {\n  const symbolToId = {\n    btc: 'bitcoin',\n    bitcoin: 'bitcoin',\n    eth: 'ethereum',\n    ethereum: 'ethereum',\n    sol: 'solana',\n    solana: 'solana',\n  };\n\n  const requested = typeof params?.coin === 'string'\n    ? params.coin\n    : typeof params?.symbol === 'string'\n      ? params.symbol\n      : typeof params?.asset === 'string'\n        ? params.asset\n        : 'bitcoin';\n\n  const normalized = String(requested).trim().toLowerCase();\n  const coinId = symbolToId[normalized] || normalized || 'bitcoin';\n  const vsCurrency = typeof params?.vs_currency === 'string' && params.vs_currency.trim()\n    ? params.vs_currency.trim().toLowerCase()\n    : 'usd';\n  const demoPrices = {\n    bitcoin: { usd: 67245.13, eur: 61890.42 },\n    ethereum: { usd: 3248.77, eur: 2989.14 },\n    solana: { usd: 142.58, eur: 131.92 },\n  };\n  const fallbackPrice = { usd: 100, eur: 92 };\n  const coinPrices = demoPrices[coinId] || fallbackPrice;\n  const price = coinPrices[vsCurrency] || coinPrices.usd || 100;\n\n  return {\n    ok: true,\n    coinId,\n    vsCurrency,\n    price,\n    source: 'demo-coingecko',\n    asOf: '2026-04-08T00:00:00Z',\n  };\n}",
+    "description": "A tool that gets the current price of BTC from CoinGecko.",
+    "implementation": "// Generated demo CoinGecko price tool for: A tool that gets the current price of BTC from CoinGecko.\nasync function run(params) {\n  const symbolToId = {\n    btc: 'bitcoin',\n    bitcoin: 'bitcoin',\n    eth: 'ethereum',\n    ethereum: 'ethereum',\n    sol: 'solana',\n    solana: 'solana',\n  };\n\n  const requested = typeof params?.coin === 'string'\n    ? params.coin\n    : typeof params?.symbol === 'string'\n      ? params.symbol\n      : typeof params?.asset === 'string'\n        ? params.asset\n        : 'bitcoin';\n\n  const normalized = String(requested).trim().toLowerCase();\n  const coinId = symbolToId[normalized] || normalized || 'bitcoin';\n  const vsCurrency = typeof params?.vs_currency === 'string' && params.vs_currency.trim()\n    ? params.vs_currency.trim().toLowerCase()\n    : 'usd';\n  const demoPrices = {\n    bitcoin: { usd: 67245.13, eur: 61890.42 },\n    ethereum: { usd: 3248.77, eur: 2989.14 },\n    solana: { usd: 142.58, eur: 131.92 },\n  };\n  const fallbackPrice = { usd: 100, eur: 92 };\n  const coinPrices = demoPrices[coinId] || fallbackPrice;\n  const price = coinPrices[vsCurrency] || coinPrices.usd || 100;\n\n  return {\n    ok: true,\n    coinId,\n    vsCurrency,\n    price,\n    source: 'demo-coingecko',\n    asOf: '2026-04-08T00:00:00Z',\n  };\n}",
     "tier": "session",
-    "callCount": 2,
-    "successCount": 2,
-    "totalLatencyMs": 3,
-    "createdAt": 1775649730899
+    "callCount": 1,
+    "successCount": 1,
+    "totalLatencyMs": 0,
+    "createdAt": 1779070288427
+  },
+  {
+    "id": "forge-mpakik2d-foiik",
+    "name": "a_tool_that_summarizes_a_json_payload",
+    "description": "A tool that summarizes a JSON payload.",
+    "implementation": "// Generated stub for: A tool that summarizes a JSON payload.\n// Parameters schema: {\"type\":\"object\"}\nasync function run(params) {\n  return { ok: true, result: `Tool executed with params: ${JSON.stringify(params)}` };\n}",
+    "tier": "session",
+    "callCount": 1,
+    "successCount": 1,
+    "totalLatencyMs": 0,
+    "createdAt": 1779070288405
   }
 ]
