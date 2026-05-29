@@ -80,7 +80,7 @@ AGENTOS_WORKBENCH_EVALUATION_STORE_PATH=../.data/evaluation-store.json
 AGENTOS_WORKBENCH_PLANNING_STORE_PATH=../.data/planning-store.json
 ```
 
-Provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) should be set in the backend environment. AgentOS supports [21 LLM providers](https://docs.agentos.sh/features/llm-output-validation) with automatic fallback chains.
+Provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) should be set in the backend environment. AgentOS supports [11 LLM providers](https://docs.agentos.sh/features/llm-output-validation) with automatic fallback chains.
 
 ## GMIs, Agents, and Agencies
 
