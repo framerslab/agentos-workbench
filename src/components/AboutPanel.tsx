@@ -43,10 +43,10 @@ export function AboutPanel() {
             </ul>
             <div className="mt-2 flex flex-wrap gap-2">
               <a href="https://github.com/framerslab/agentos" target="_blank" rel="noreferrer">
-                <img alt="GitHub stars" src="https://img.shields.io/github/stars/framersai/agentos?style=social" />
+                <img alt="GitHub stars" src="https://img.shields.io/github/stars/framerslab/agentos?style=social" />
               </a>
               <a href="https://github.com/framerslab/agentos/fork" target="_blank" rel="noreferrer">
-                <img alt="GitHub forks" src="https://img.shields.io/github/forks/framersai/agentos?style=social" />
+                <img alt="GitHub forks" src="https://img.shields.io/github/forks/framerslab/agentos?style=social" />
               </a>
             </div>
           </div>
