@@ -14,7 +14,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[Website](https://agentos.sh) · [Docs](https://docs.agentos.sh) · [GitHub](https://github.com/framersai/agentos) · [Discord](https://wilds.ai/discord) · [npm](https://www.npmjs.com/package/@framers/agentos)
+[Website](https://agentos.sh) · [Docs](https://docs.agentos.sh) · [GitHub](https://github.com/framerslab/agentos) · [Discord](https://wilds.ai/discord) · [npm](https://www.npmjs.com/package/@framers/agentos)
 
 </div>
 
@@ -41,7 +41,7 @@ Built on [`@framers/agentos`](https://www.npmjs.com/package/@framers/agentos), t
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/framersai/agentos-workbench.git
+git clone https://github.com/framerslab/agentos-workbench.git
 cd agentos-workbench
 pnpm install
 
@@ -141,15 +141,15 @@ pnpm build:check      # Build + bundle report + budget enforcement
 
 | Package | Description | Links |
 |---------|-------------|-------|
-| [`@framers/agentos`](https://www.npmjs.com/package/@framers/agentos) | Core TypeScript AI agent runtime | [GitHub](https://github.com/framersai/agentos) · [Docs](https://docs.agentos.sh) |
+| [`@framers/agentos`](https://www.npmjs.com/package/@framers/agentos) | Core TypeScript AI agent runtime | [GitHub](https://github.com/framerslab/agentos) · [Docs](https://docs.agentos.sh) |
 | [`@framers/sql-storage-adapter`](https://www.npmjs.com/package/@framers/sql-storage-adapter) | SQL persistence for agent memory and sessions | [npm](https://www.npmjs.com/package/@framers/sql-storage-adapter) |
-| [AgentOS Workbench](https://github.com/framersai/agentos-workbench) | Visual debugging dashboard (this repo) | [GitHub](https://github.com/framersai/agentos-workbench) |
+| [AgentOS Workbench](https://github.com/framerslab/agentos-workbench) | Visual debugging dashboard (this repo) | [GitHub](https://github.com/framerslab/agentos-workbench) |
 | [AgentOS Docs](https://docs.agentos.sh) | Guides, tutorials, and TypeDoc API reference | [docs.agentos.sh](https://docs.agentos.sh) |
 | [Wilds.ai](https://wilds.ai) | AI game worlds powered by AgentOS | [wilds.ai](https://wilds.ai) |
 
 ## License
 
-- **AgentOS core** ([`@framers/agentos`](https://github.com/framersai/agentos)) — [Apache 2.0](https://github.com/framersai/agentos/blob/master/LICENSE)
+- **AgentOS core** ([`@framers/agentos`](https://github.com/framerslab/agentos)) — [Apache 2.0](https://github.com/framerslab/agentos/blob/master/LICENSE)
 - **Workbench** — MIT
 
 ---

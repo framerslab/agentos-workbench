@@ -489,7 +489,7 @@ export function Sidebar({ onCreateSession, onToggleCollapse, onNavigate }: Sideb
               <span className="hidden sm:inline">frame.dev</span>
             </a>
             <a
-              href="https://github.com/framersai/agentos"
+              href="https://github.com/framerslab/agentos"
               target="_blank"
               rel="noreferrer"
               className="group inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-transform duration-200 hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1"
@@ -498,7 +498,7 @@ export function Sidebar({ onCreateSession, onToggleCollapse, onNavigate }: Sideb
               <span className="hidden sm:inline">GitHub</span>
             </a>
             <a
-              href="https://github.com/framersai/agentos/stargazers"
+              href="https://github.com/framerslab/agentos/stargazers"
               target="_blank"
               rel="noreferrer"
               aria-label="Star AgentOS on GitHub"
@@ -507,7 +507,7 @@ export function Sidebar({ onCreateSession, onToggleCollapse, onNavigate }: Sideb
               <Star className="h-3.5 w-3.5 text-yellow-500 transition-transform group-active:scale-90" aria-hidden="true" />
             </a>
             <a
-              href="https://github.com/framersai/agentos/fork"
+              href="https://github.com/framerslab/agentos/fork"
               target="_blank"
               rel="noreferrer"
               aria-label="Fork AgentOS on GitHub"

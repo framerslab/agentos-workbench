@@ -14,7 +14,7 @@ export function buildBundleBaseline(report, summary = buildBundleSummary(report)
   return {
     generatedAt,
     sourceReportGeneratedAt: report.generatedAt ?? null,
-    project: report.project ?? '@framersai/agentos-workbench',
+    project: report.project ?? '@framers/agentos-workbench',
     metrics: {
       totalBytes: summary.totalBytes,
       totalGzipBytes: summary.totalGzipBytes,

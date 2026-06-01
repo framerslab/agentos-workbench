@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-05-18T01:50:00.000Z",
   "sourceReportGeneratedAt": "2026-05-18T01:50:00.000Z",
-  "project": "@framersai/agentos-workbench",
+  "project": "@framers/agentos-workbench",
   "metrics": {
     "totalBytes": 2016281,
     "totalGzipBytes": 572349,

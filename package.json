@@ -1,5 +1,5 @@
 {
-  "name": "@framersai/agentos-workbench",
+  "name": "@framers/agentos-workbench",
   "version": "0.1.0",
   "private": true,
   "description": "Developer cockpit for AgentOS sessions: inspect personas, debug tool calls, and replay streaming transcripts.",
@@ -91,7 +91,7 @@
   "packageManager": "pnpm@10.15.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/framersai/agentos-workbench"
+    "url": "https://github.com/framerslab/agentos-workbench"
   },
   "license": "MIT"
 }

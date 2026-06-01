@@ -92,7 +92,7 @@ export function buildBundleReport(assets, generatedAt = new Date().toISOString()
 
   return {
     generatedAt,
-    project: '@framersai/agentos-workbench',
+    project: '@framers/agentos-workbench',
     distAssetsDir: 'dist/assets',
     totals,
     topJsAssets: topAssets(jsAssets),

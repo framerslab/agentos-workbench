@@ -38,14 +38,14 @@ export function AboutPanel() {
                 <a href="https://vca.chat" target="_blank" rel="noreferrer" className="text-sky-600 hover:underline dark:text-sky-300">vca.chat · AgentOS Marketplace</a>
               </li>
               <li>
-                <a href="https://github.com/framersai/agentos" target="_blank" rel="noreferrer" className="text-sky-600 hover:underline dark:text-sky-300">github.com/framersai/agentos</a>
+                <a href="https://github.com/framerslab/agentos" target="_blank" rel="noreferrer" className="text-sky-600 hover:underline dark:text-sky-300">github.com/framerslab/agentos</a>
               </li>
             </ul>
             <div className="mt-2 flex flex-wrap gap-2">
-              <a href="https://github.com/framersai/agentos" target="_blank" rel="noreferrer">
+              <a href="https://github.com/framerslab/agentos" target="_blank" rel="noreferrer">
                 <img alt="GitHub stars" src="https://img.shields.io/github/stars/framersai/agentos?style=social" />
               </a>
-              <a href="https://github.com/framersai/agentos/fork" target="_blank" rel="noreferrer">
+              <a href="https://github.com/framerslab/agentos/fork" target="_blank" rel="noreferrer">
                 <img alt="GitHub forks" src="https://img.shields.io/github/forks/framersai/agentos?style=social" />
               </a>
             </div>

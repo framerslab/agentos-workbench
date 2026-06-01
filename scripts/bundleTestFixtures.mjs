@@ -46,7 +46,7 @@ function topAssets(assets, limit = 10) {
 export function createBundleReportFixture({
   assets = Object.values(createCoreBundleAssets()),
   generatedAt = '2026-03-26T12:00:00.000Z',
-  project = '@framersai/agentos-workbench',
+  project = '@framers/agentos-workbench',
   includeTopJsAssets = true,
   totals: totalsOverrides = {},
 } = {}) {
@@ -78,7 +78,7 @@ export function createCurrentBundleBaselineFixture(overrides = {}) {
   return {
     generatedAt: '2026-03-26T12:05:00.000Z',
     sourceReportGeneratedAt: '2026-03-26T12:00:00.000Z',
-    project: '@framersai/agentos-workbench',
+    project: '@framers/agentos-workbench',
     metrics: {
       totalBytes: 662_570,
       totalGzipBytes: 186_700,
@@ -101,7 +101,7 @@ export function createPreviousBundleBaselineFixture(overrides = {}) {
   return {
     generatedAt: '2026-03-26T11:55:00.000Z',
     sourceReportGeneratedAt: '2026-03-26T11:50:00.000Z',
-    project: '@framersai/agentos-workbench',
+    project: '@framers/agentos-workbench',
     metrics: {
       totalBytes: 640_000,
       totalGzipBytes: 180_000,

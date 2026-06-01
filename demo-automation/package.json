@@ -1,5 +1,5 @@
 {
-  "name": "@framersai/agentos-demo-automation",
+  "name": "@framers/agentos-demo-automation",
   "version": "0.1.0",
   "private": true,
   "description": "Automated demo recording system for AgentOS Workbench",

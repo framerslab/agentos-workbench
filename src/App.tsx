@@ -1376,7 +1376,7 @@ export default function App() {
           </div>
           <nav className="flex items-center gap-3 text-xs">
             <a href="https://agentos.sh/docs" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">Docs</a>
-            <a href="https://github.com/framersai/agentos" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">GitHub</a>
+            <a href="https://github.com/framerslab/agentos" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">GitHub</a>
             <button
               type="button"
               onClick={() => setLeftTab("marketplace")}
@@ -1885,7 +1885,7 @@ export default function App() {
           <span className="uppercase tracking-[0.25em]">AgentOS — Cognitive Operating System</span>
           <div className="flex items-center gap-3">
             <a href="https://agentos.sh" target="_blank" rel="noreferrer" className="transition-colors hover:text-[color:var(--color-accent-primary)]">agentos.sh</a>
-            <a href="https://github.com/framersai/agentos" target="_blank" rel="noreferrer" className="transition-colors hover:text-[color:var(--color-accent-primary)]">GitHub</a>
+            <a href="https://github.com/framerslab/agentos" target="_blank" rel="noreferrer" className="transition-colors hover:text-[color:var(--color-accent-primary)]">GitHub</a>
           </div>
         </div>
       </footer>
