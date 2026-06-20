@@ -32,9 +32,10 @@ jobs:
           python-version: '3.11'
 
       - name: Set up pnpm
+        # No `version:` input: pnpm/action-setup@v6 reads the pnpm version from the
+        # "packageManager" field in package.json. Passing both raises
+        # ERR_PNPM_BAD_PM_VERSION ("Multiple versions of pnpm specified").
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Set up Node
         uses: actions/setup-node@v5

@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '20'
       - name: Detect package manager
         id: pm
         run: |
@@ -25,6 +22,15 @@ jobs:
       - name: Setup pnpm
         if: steps.pm.outputs.pm == 'pnpm'
         uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          # setup-node@v5 defaults package-manager-cache to true, which reads the
+          # "packageManager": "pnpm@..." field and runs `pnpm store path` for cache
+          # setup. There is no committed lockfile to cache against and pnpm is set up
+          # by the step above, so disable the built-in cache to avoid the
+          # "Unable to locate executable file: pnpm" failure.
+          package-manager-cache: false
       - name: Install
         run: |
           if [ "${{ steps.pm.outputs.pm }}" = "pnpm" ]; then
