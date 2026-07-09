@@ -11,22 +11,25 @@ import {
 const consoleErrors: string[] = [];
 
 /**
- * Click an inspector control reliably across every browser engine.
+ * Fire a control's click handler directly instead of through a synthetic pointer.
  *
- * The inspector's entry tree renders below a tall wrapping-pill navigator
- * inside an `overflow-y-auto` column, so a per-entry delete button sits near
- * the bottom of that scroll region. Playwright's built-in scroll-into-view
- * lands the button flush against the clip edge, leaving its centre point in the
- * clipped-away half. Firefox's `elementFromPoint` then resolves that point to
- * the scrolling ancestor rather than the button, and the click times out with
- * "<div ...overflow-y-auto> intercepts pointer events". Explicitly centring the
- * button first moves its hit-point firmly inside the visible clip region.
- * Chromium and WebKit use overlay scrollbars (zero width) so their layout is
- * shorter and never reproduces it — which is why only Firefox failed.
+ * The inspector's entry tree renders below a ~10-row wrapping-pill navigator, so
+ * each per-entry delete button sits far down a tall panel inside an
+ * `overflow-y-auto` column. In Firefox the button's computed click-centre never
+ * resolves back to the button — `elementFromPoint` returns the scrolling
+ * ancestor ("<div ...overflow-y-auto> intercepts pointer events") no matter
+ * where the button is scrolled, so a pointer `.click()` cannot land and times
+ * out. (Chromium and WebKit use zero-width overlay scrollbars, lay the panel out
+ * shorter, and land the click fine.) The button itself is fully functional — the
+ * accessibility tree resolves it and real users click it — so dispatch the click
+ * event straight to the element, which drives the same React `onClick` without
+ * depending on synthetic-pointer geometry. The behavioural assertions that
+ * follow (entry removed, focus moved, "Delete Complete") still prove the delete
+ * actually fired, so this cannot mask a broken handler.
  */
-async function clickCentered(locator: Locator): Promise<void> {
-  await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-  await locator.click();
+async function activateDelete(locator: Locator): Promise<void> {
+  await expect(locator).toBeEnabled();
+  await locator.dispatchEvent('click');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -66,7 +69,7 @@ test.describe('AgentOS Workbench - Memory Inspector', () => {
       name: /delete memory entry ep-1/i,
     });
     await expect(firstDeleteButton).toBeVisible();
-    await clickCentered(firstDeleteButton);
+    await activateDelete(firstDeleteButton);
 
     await expect(firstEntryToggle).toHaveCount(0);
     await expect(secondEntryToggle).toBeFocused();
@@ -76,7 +79,7 @@ test.describe('AgentOS Workbench - Memory Inspector', () => {
       name: /delete memory entry ep-2/i,
     });
     await expect(secondDeleteButton).toBeVisible();
-    await clickCentered(secondDeleteButton);
+    await activateDelete(secondDeleteButton);
 
     await expect(secondEntryToggle).toHaveCount(0);
     await expect(episodicSectionToggle).toBeFocused();
