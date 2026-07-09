@@ -74,8 +74,16 @@ export function isGuardrailPackInstalled(packId: string, extensionInstalled?: bo
   try {
     createRequire(__filename).resolve(`@framers/agentos-ext-${packId}/package.json`);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    // None of these packs list `./package.json` in their `exports` map, and
+    // their sole `.` entry is import-only, so a CommonJS resolve of either
+    // specifier raises ERR_PACKAGE_PATH_NOT_EXPORTED. That error is thrown
+    // only AFTER the package itself has been located on disk — it is proof of
+    // installation, not absence. Treating it as absence made this whole
+    // fallback dead code: it reported every genuinely installed standalone
+    // pack as missing, and the monorepo directory probe above was silently
+    // carrying the check. Only a resolution miss means "not installed".
+    return (err as NodeJS.ErrnoException | null)?.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED';
   }
 }
 const SECRET_ENV_MAP_SOURCE = path.join(
