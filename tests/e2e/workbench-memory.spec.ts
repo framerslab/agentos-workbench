@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import {
   attachConsoleErrorCollector,
   flushConsoleErrors,
@@ -9,6 +9,25 @@ import {
 } from './helpers/workbench';
 
 const consoleErrors: string[] = [];
+
+/**
+ * Click an inspector control reliably across every browser engine.
+ *
+ * The inspector's entry tree renders below a tall wrapping-pill navigator
+ * inside an `overflow-y-auto` column, so a per-entry delete button sits near
+ * the bottom of that scroll region. Playwright's built-in scroll-into-view
+ * lands the button flush against the clip edge, leaving its centre point in the
+ * clipped-away half. Firefox's `elementFromPoint` then resolves that point to
+ * the scrolling ancestor rather than the button, and the click times out with
+ * "<div ...overflow-y-auto> intercepts pointer events". Explicitly centring the
+ * button first moves its hit-point firmly inside the visible clip region.
+ * Chromium and WebKit use overlay scrollbars (zero width) so their layout is
+ * shorter and never reproduces it — which is why only Firefox failed.
+ */
+async function clickCentered(locator: Locator): Promise<void> {
+  await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await locator.click();
+}
 
 test.beforeEach(async ({ page }) => {
   await installDefaultApiMocks(page);
@@ -47,7 +66,7 @@ test.describe('AgentOS Workbench - Memory Inspector', () => {
       name: /delete memory entry ep-1/i,
     });
     await expect(firstDeleteButton).toBeVisible();
-    await firstDeleteButton.click();
+    await clickCentered(firstDeleteButton);
 
     await expect(firstEntryToggle).toHaveCount(0);
     await expect(secondEntryToggle).toBeFocused();
@@ -57,7 +76,7 @@ test.describe('AgentOS Workbench - Memory Inspector', () => {
       name: /delete memory entry ep-2/i,
     });
     await expect(secondDeleteButton).toBeVisible();
-    await secondDeleteButton.click();
+    await clickCentered(secondDeleteButton);
 
     await expect(secondEntryToggle).toHaveCount(0);
     await expect(episodicSectionToggle).toBeFocused();
