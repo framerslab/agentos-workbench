@@ -15,6 +15,7 @@ import {
   mockExecutions
 } from '../mockData';
 import {
+  isGuardrailPackInstalled,
   listGuardrailExtensions,
   listWorkbenchExtensions,
   listWorkbenchSkills,
@@ -1817,7 +1818,9 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
         package: extension?.package ?? `@framers/agentos-ext-${packId}`,
         name: extension?.name ?? packId,
         description: extension?.description ?? '',
-        installed: extension?.installed ?? false,
+        // Packs that migrated to standalone packages are absent from the
+        // extensions registry — probe the standalone locations too.
+        installed: isGuardrailPackInstalled(packId, extension?.installed),
         enabled: guardrailPackState[packId],
         verified: extension?.verified ?? false,
       };

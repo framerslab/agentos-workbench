@@ -1,10 +1,83 @@
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../../');
 const SKILLS_REGISTRY_ROOT = path.join(REPO_ROOT, 'packages/agentos-skills-registry');
 const EXTENSIONS_REGISTRY_ROOT = path.join(REPO_ROOT, 'packages/agentos-extensions');
+
+/**
+ * Resolve the root directory that holds the skills content
+ * (`registry.json` + `registry/curated/<name>/SKILL.md`).
+ *
+ * The skills ecosystem split content out of the catalog SDK: SKILL.md files
+ * and registry.json now live in the `@framers/agentos-skills` content
+ * package, while `@framers/agentos-skills-registry` is a code-only SDK with
+ * no registry.json on disk. Resolution order:
+ *
+ * 1. `packages/agentos-skills` in the parent monorepo (current layout).
+ * 2. `packages/agentos-skills-registry` (legacy layout, pre-split).
+ * 3. The installed `@framers/agentos-skills` npm package (standalone
+ *    checkouts with no monorepo siblings). The package explicitly exports
+ *    `./registry.json`, so `require.resolve` is exports-safe.
+ *
+ * Memoized after the first hit; returns null when no candidate carries a
+ * registry.json (skills then list as empty, matching the legacy behavior).
+ */
+let cachedSkillsContentRoot: string | null | undefined;
+function resolveSkillsContentRoot(): string | null {
+  if (cachedSkillsContentRoot !== undefined) {
+    return cachedSkillsContentRoot;
+  }
+  const candidates = [
+    path.join(REPO_ROOT, 'packages/agentos-skills'),
+    SKILLS_REGISTRY_ROOT,
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(path.join(candidate, 'registry.json'))) {
+      cachedSkillsContentRoot = candidate;
+      return candidate;
+    }
+  }
+  try {
+    const requireFromHere = createRequire(__filename);
+    const registryJson = requireFromHere.resolve('@framers/agentos-skills/registry.json');
+    cachedSkillsContentRoot = path.dirname(registryJson);
+    return cachedSkillsContentRoot;
+  } catch {
+    cachedSkillsContentRoot = null;
+    return null;
+  }
+}
+
+/**
+ * Whether a guardrail pack's implementation is present in this environment.
+ *
+ * The five guardrail packs migrated out of the `agentos-extensions` monorepo
+ * into standalone packages (`packages/agentos-ext-<packId>` beside the
+ * workbench in the parent monorepo; `@framers/agentos-ext-<packId>` on npm),
+ * so the extensions-registry directory probe alone reports them as missing.
+ * A pack counts as installed when any of these hold:
+ *
+ * 1. The extensions-registry entry resolved (caller passes its `installed`).
+ * 2. Its standalone package directory exists in the parent monorepo.
+ * 3. Its npm package resolves from this backend's dependency graph.
+ */
+export function isGuardrailPackInstalled(packId: string, extensionInstalled?: boolean): boolean {
+  if (extensionInstalled) {
+    return true;
+  }
+  if (existsSync(path.join(REPO_ROOT, `packages/agentos-ext-${packId}`, 'package.json'))) {
+    return true;
+  }
+  try {
+    createRequire(__filename).resolve(`@framers/agentos-ext-${packId}/package.json`);
+    return true;
+  } catch {
+    return false;
+  }
+}
 const SECRET_ENV_MAP_SOURCE = path.join(
   REPO_ROOT,
   'packages/agentos-extensions-registry/src/secret-env-map.ts'
@@ -327,9 +400,12 @@ async function loadWorkspaceSkills(secretEnvMap: Record<string, string>): Promis
 }
 
 export async function listWorkbenchSkills(): Promise<WorkbenchSkillInfo[]> {
-  const registry = await readJsonFile<{ skills?: { curated?: SkillRegistryEntry[]; community?: SkillRegistryEntry[] } }>(
-    path.join(SKILLS_REGISTRY_ROOT, 'registry.json')
-  );
+  const skillsContentRoot = resolveSkillsContentRoot();
+  const registry = skillsContentRoot
+    ? await readJsonFile<{ skills?: { curated?: SkillRegistryEntry[]; community?: SkillRegistryEntry[] } }>(
+        path.join(skillsContentRoot, 'registry.json')
+      )
+    : null;
   const secretEnvMap = await loadSecretEnvMap();
   const curated = registry?.skills?.curated ?? [];
   const community = registry?.skills?.community ?? [];
@@ -367,7 +443,9 @@ export async function listWorkbenchSkills(): Promise<WorkbenchSkillInfo[]> {
       requiredTools: normalizeStringArray(entry.requiredTools),
       requiredBins,
       installHints,
-      contentPath: entry.path ? path.join(SKILLS_REGISTRY_ROOT, entry.path, 'SKILL.md') : undefined,
+      contentPath: entry.path && skillsContentRoot
+        ? path.join(skillsContentRoot, entry.path, 'SKILL.md')
+        : undefined,
     } satisfies WorkbenchSkillInfo;
   });
 
