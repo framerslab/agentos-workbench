@@ -149,15 +149,44 @@ function buildStubResponse(prompt: string, config: PlaygroundConfig) {
   };
 }
 
-/** Return the static @framers/agentos runtime (streamText / generateText). */
-async function resolveAgentOS(): Promise<PlaygroundRuntimeModule | null> {
+/**
+ * Resolve the playground runtime, preferring module-level exports.
+ *
+ * Contract (exercised by tests/playgroundRoutes.test.ts):
+ * 1. `loadModule` is consulted first — when it yields a runtime whose
+ *    top-level exports include a callable `generateText` or `streamText`,
+ *    that runtime wins and the legacy `loadRuntime` getter is never invoked.
+ * 2. Otherwise the legacy `loadRuntime` getter is awaited and its result
+ *    returned as-is.
+ * 3. Any loader failure resolves to null so callers fall back to the stub.
+ */
+export async function resolvePlaygroundRuntime(
+  loadRuntime: () => Promise<unknown>,
+  loadModule: () => Promise<unknown>,
+): Promise<PlaygroundRuntimeModule | null> {
   try {
-    const runtime = getStaticRuntime();
-    if (typeof runtime.streamText === 'function') return runtime;
-    return null;
+    const moduleRuntime = (await loadModule()) as PlaygroundRuntimeModule | null;
+    if (
+      moduleRuntime &&
+      (typeof moduleRuntime.generateText === 'function' ||
+        typeof moduleRuntime.streamText === 'function')
+    ) {
+      return moduleRuntime;
+    }
+    return ((await loadRuntime()) as PlaygroundRuntimeModule | null) ?? null;
   } catch {
     return null;
   }
+}
+
+/** Return the static @framers/agentos runtime (streamText / generateText). */
+async function resolveAgentOS(): Promise<PlaygroundRuntimeModule | null> {
+  return resolvePlaygroundRuntime(
+    // No legacy runtime getter in the static-import world — the module
+    // exports below are the only source.
+    async () => null,
+    async () => getStaticRuntime(),
+  );
 }
 
 async function collectPlaygroundResult(
