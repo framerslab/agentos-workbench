@@ -41,6 +41,10 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 20
+          # No committed lockfile to cache against; the default
+          # package-manager cache resolution fails the step outright
+          # (same fix ci.yml carries).
+          package-manager-cache: false
 
       - name: Update submodules to latest (when present)
         run: |
