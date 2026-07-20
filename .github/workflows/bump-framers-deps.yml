@@ -65,6 +65,13 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Scope the PR to the bumped manifests: the submodule refresh above
+          # leaves submodule worktrees dirty, and unscoped change collection
+          # trips the action's branch materialization ("no changes added").
+          add-paths: |
+            package.json
+            **/package.json
+            pnpm-lock.yaml
           commit-message: 'chore(deps): bump @framers/* deps to latest published versions'
           title: 'chore(deps): bump @framers/* deps to latest published versions'
           body: |
