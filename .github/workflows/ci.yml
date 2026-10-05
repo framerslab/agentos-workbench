@@ -40,6 +40,17 @@ jobs:
           else
             npm install
           fi
+      - name: npm lockfiles match their manifests
+        run: |
+          # `npm ci` refuses to install when a package-lock.json disagrees with
+          # its package.json. Running it for every tracked npm lockfile catches
+          # a manifest change that left its lockfile behind.
+          git ls-files -- 'package-lock.json' '*/package-lock.json' | while IFS= read -r lock; do
+            dir=$(dirname "$lock")
+            echo "::group::npm ci in ${dir}"
+            (cd "$dir" && npm ci --ignore-scripts --no-audit --no-fund)
+            echo "::endgroup::"
+          done
       - name: Lint
         run: |
           if [ "${{ steps.pm.outputs.pm }}" = "pnpm" ]; then
