@@ -2,7 +2,8 @@ name: Bump @framers/* deps
 
 # Weekly cron + manual trigger. Bumps every @framers/* explicit version pin
 # in package.json files to the latest npm-published version, refreshes the
-# pnpm lockfile when present, bumps git submodule pointers when present,
+# pnpm lockfile and every tracked npm lockfile when present, bumps git
+# submodule pointers when present,
 # and opens a single Pull Request with the diff. The same workflow drops
 # into every repo that depends on the agentos family.
 
@@ -61,6 +62,19 @@ jobs:
             pnpm install --no-frozen-lockfile
           fi
 
+      - name: Refresh npm lockfiles (when present)
+        run: |
+          # `npm ci` refuses to install when a package-lock.json disagrees with
+          # its package.json, so each tracked npm lockfile is re-resolved after
+          # the bump and the two move together. --package-lock-only installs
+          # nothing and --ignore-scripts runs no package script.
+          git ls-files -- 'package-lock.json' '*/package-lock.json' | while IFS= read -r lock; do
+            dir=$(dirname "$lock")
+            echo "::group::npm lockfile in ${dir}"
+            (cd "$dir" && npm install --package-lock-only --no-audit --no-fund --ignore-scripts)
+            echo "::endgroup::"
+          done
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
@@ -74,6 +88,7 @@ jobs:
             Includes (when applicable):
             - `package.json` explicit-pin updates (caret semver of latest)
             - `pnpm-lock.yaml` refresh
+            - `package-lock.json` refresh (every tracked npm lockfile)
             - Git submodule pointer updates (where the parent repo has submodules)
 
             Workspace `workspace:*` pins are not touched. Review the diff
