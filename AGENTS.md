@@ -85,7 +85,7 @@ Before a pull request merges, every unresolved thread from a review bot, includi
 
 ## Security
 
-Never commit API keys or tokens. The backend is a development server with no authentication: do not add a deployment that exposes it. Report vulnerabilities privately as the [security policy](https://github.com/framerslab/agentos-workbench/blob/master/.github/SECURITY.md) describes.
+Never commit API keys or tokens. The backend is a development server with no authentication: do not add a deployment that exposes it. It listens on `localhost` and refuses requests from other origins and hosts (`backend/src/lib/networkPolicy.ts`). A route that writes to `reply.raw` sets its CORS headers with `applyStreamCorsHeaders`, never by echoing the request's `Origin`. Report vulnerabilities privately as the [security policy](https://github.com/framerslab/agentos-workbench/blob/master/.github/SECURITY.md) describes.
 
 ## Do not
 

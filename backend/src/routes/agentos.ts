@@ -14,6 +14,7 @@ import {
   mockModels,
   mockExecutions
 } from '../mockData';
+import { applyStreamCorsHeaders } from '../lib/networkPolicy';
 import {
   isGuardrailPackInstalled,
   listGuardrailExtensions,
@@ -596,10 +597,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     const agentos = await getAgentOS();
     const { userId, mode, conversationId, messages, model, workflowRequest, agencyRequest } = request.query as any;
     
-    // Manually set CORS headers because we are using reply.raw
-    const origin = request.headers.origin || 'http://localhost:5175';
-    reply.raw.setHeader('Access-Control-Allow-Origin', origin);
-    reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
+    // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
+    applyStreamCorsHeaders(request.headers.origin, reply.raw);
     
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
@@ -923,9 +922,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       outputFormat,
       roles: parsedRoles,
     });
-    const origin = request.headers.origin || 'http://localhost:5175';
-    reply.raw.setHeader('Access-Control-Allow-Origin', origin);
-    reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
+    // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
+    applyStreamCorsHeaders(request.headers.origin, reply.raw);
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');
@@ -1016,9 +1014,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       (workflowId
         ? Array.from(pendingWorkflowExecutions.values()).find((candidate) => candidate.workflowId === workflowId)
         : undefined);
-    const origin = request.headers.origin || 'http://localhost:5175';
-    reply.raw.setHeader('Access-Control-Allow-Origin', origin);
-    reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
+    // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
+    applyStreamCorsHeaders(request.headers.origin, reply.raw);
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');

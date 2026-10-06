@@ -73,10 +73,14 @@ VITE_BACKEND_PROTOCOL=http
 
 ```ini
 AGENTOS_WORKBENCH_BACKEND_PORT=3001
-AGENTOS_WORKBENCH_BACKEND_HOST=0.0.0.0
+AGENTOS_WORKBENCH_BACKEND_HOST=localhost
+# AGENTOS_WORKBENCH_ALLOWED_ORIGINS=http://localhost:5175
+# AGENTOS_WORKBENCH_ALLOWED_HOSTS=workbench.lan
 AGENTOS_WORKBENCH_EVALUATION_STORE_PATH=../.data/evaluation-store.json
 AGENTOS_WORKBENCH_PLANNING_STORE_PATH=../.data/planning-store.json
 ```
+
+The backend has no login, and it runs with your provider keys loaded. It listens on `localhost`, answers browser requests only from the workbench front end (ports 5175 and 4173), and refuses a request whose Host header names another site. To reach it from another machine, set `AGENTOS_WORKBENCH_BACKEND_HOST=0.0.0.0`, list the front end's origin in `AGENTOS_WORKBENCH_ALLOWED_ORIGINS`, and run it only on a network you trust.
 
 Provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) should be set in the backend environment. AgentOS supports [11 LLM providers](https://docs.agentos.sh/features/llm-output-validation) with automatic fallback chains.
 
