@@ -170,6 +170,7 @@ interface ExtensionRegistryEntry {
   };
   features?: string[];
   tools?: string[];
+  platforms?: string[];
   keywords?: string[];
   npm?: string;
   repository?: string;
@@ -579,7 +580,11 @@ export async function listWorkbenchExtensions(): Promise<WorkbenchExtensionInfo[
       keywords: normalizeStringArray(entry.keywords),
       requiredSecrets,
       requiredEnvVars,
-      platforms: normalizeStringArray(manifest?.platforms),
+      // The manifest is read when the pack's directory is present; a catalog entry can
+      // carry the same list for checkouts that have only the catalog.
+      platforms: normalizeStringArray(manifest?.platforms).length > 0
+        ? normalizeStringArray(manifest?.platforms)
+        : normalizeStringArray(entry.platforms),
       configuration:
         manifest?.configuration && typeof manifest.configuration === 'object' && !Array.isArray(manifest.configuration)
           ? manifest.configuration
