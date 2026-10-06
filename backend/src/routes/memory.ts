@@ -485,7 +485,9 @@ async function tryGetRuntimeMemory(): Promise<RuntimeMemoryState | null> {
     }
 
     return { conversations, liveManagers };
-  } catch {
+  } catch (error) {
+    // The routes fall back to demo data; say why, or a broken runtime looks like an absent one.
+    console.warn('[memory routes] live AgentOS memory unavailable, serving demo data:', error);
     return null;
   }
 }

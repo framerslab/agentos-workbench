@@ -32,7 +32,7 @@ The AgentOS Workbench: a React and Vite dashboard, with a Fastify backend, for i
 
 ## Toolchain
 
-CI uses Node 20. The root uses pnpm (the `packageManager` field names the version) and commits no lockfile. `backend/` and `demo-automation/` use npm, each with a committed `package-lock.json`. There is no pnpm workspace file; pnpm's recursive commands still find the three packages.
+CI uses Node 22. The root uses pnpm (the `packageManager` field names the version) and commits no lockfile. `backend/` and `demo-automation/` use npm, each with a committed `package-lock.json`. There is no pnpm workspace file; pnpm's recursive commands still find the three packages.
 
 Front end: React 18, Vite, Tailwind, TypeScript, Zustand. Backend: Fastify, TypeScript.
 
@@ -45,9 +45,10 @@ CI runs (job "build" in [`.github/workflows/ci.yml`](https://github.com/framersl
 1. `pnpm install --no-frozen-lockfile`
 2. `npm ci --ignore-scripts --no-audit --no-fund` in `backend/` and in `demo-automation/` (each npm lockfile matches its `package.json`)
 3. `pnpm run -r --if-present lint` (ESLint over `src/`, no warnings allowed)
-4. `pnpm run -r --if-present test`, then the root's `test` script alone when that run fails
+4. `pnpm run --if-present test` (the root's tests)
+5. `npm test` in `backend/` (the backend's tests)
 
-Step 4 passes when the root's tests pass. The backend's tests run in it, and a failure there does not fail CI. When you change `backend/`, run `npm test` in `backend/` and report the result in the pull request.
+A failure in either test step fails the job.
 
 Available scripts that CI does not run:
 
