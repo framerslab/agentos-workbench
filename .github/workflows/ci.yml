@@ -24,7 +24,9 @@ jobs:
         uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          # Node 22, as agentos and the monorepo's workbench workflow use. Node 20 reached its
+          # end of life on 2026-04-30.
+          node-version: '22'
           # setup-node@v5 defaults package-manager-cache to true, which reads the
           # "packageManager": "pnpm@..." field and runs `pnpm store path` for cache
           # setup. There is no committed lockfile to cache against and pnpm is set up
@@ -58,13 +60,18 @@ jobs:
           else
             npm run lint --if-present
           fi
-      - name: Test
+      # The two packages run their tests in separate steps, and a failure in either fails the
+      # job. backend/ installed its dependencies with `npm ci` in the lockfile step above.
+      - name: Test (front end)
         run: |
           if [ "${{ steps.pm.outputs.pm }}" = "pnpm" ]; then
-            pnpm run -r --if-present test || pnpm run --if-present test
+            pnpm run --if-present test
           else
             npm test --if-present
           fi
+      - name: Test (backend)
+        working-directory: backend
+        run: npm test
       - name: Coverage (Vitest, 60% lines minimum)
         run: |
           if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then
