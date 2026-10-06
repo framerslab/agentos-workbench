@@ -3,9 +3,9 @@
 # AgentOS Workbench
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../logos/agentos-primary-no-tagline-dark-2x.png">
-  <source media="(prefers-color-scheme: light)" srcset="../../logos/agentos-primary-no-tagline-light-2x.png">
-  <img src="../../logos/agentos-primary-no-tagline-transparent-2x.png" alt="AgentOS Workbench" width="260">
+  <source media="(prefers-color-scheme: dark)" srcset="public/logos/agentos-primary-no-tagline-dark-2x.png">
+  <source media="(prefers-color-scheme: light)" srcset="public/logos/agentos-primary-no-tagline-light-2x.png">
+  <img src="public/logos/agentos-primary-no-tagline-transparent-2x.png" alt="AgentOS Workbench" width="260">
 </picture>
 
 **Visual debugging and orchestration dashboard for [AgentOS](https://agentos.sh) agents.**
@@ -44,15 +44,13 @@ Built on [`@framers/agentos`](https://www.npmjs.com/package/@framers/agentos), t
 git clone https://github.com/framerslab/agentos-workbench.git
 cd agentos-workbench
 pnpm install
+(cd backend && npm ci)
 
-# 2. Configure environment
-cp .env.example .env.local
-# Edit .env.local with your backend URL and API keys
+# 2. Configure the backend
+cp backend/.env.example backend/.env
+# Edit backend/.env and add your provider API keys
 
-# 3. Start the backend
-pnpm --filter backend dev
-
-# 4. Start the workbench
+# 3. Start the backend and the workbench
 pnpm dev
 # Opens at http://localhost:5175
 ```
@@ -118,8 +116,6 @@ See `backend/docs/index.html` for the generated backend route documentation.
 - **Import**: Settings > Data > "Import..." (schema: `agentos-workbench-export-v1`)
 - **Clear**: Settings > Data > "Clear storage"
 
-See [`CLIENT_STORAGE_AND_EXPORTS.md`](../../docs/CLIENT_STORAGE_AND_EXPORTS.md) for details.
-
 ## Scripts
 
 ```bash
@@ -147,6 +143,16 @@ pnpm build:check      # Build + bundle report + budget enforcement
 | [AgentOS Docs](https://docs.agentos.sh) | Guides, tutorials, and TypeDoc API reference | [docs.agentos.sh](https://docs.agentos.sh) |
 | [Wilds.ai](https://wilds.ai) | AI game worlds powered by AgentOS | [wilds.ai](https://wilds.ai) |
 
+## Contributing and support
+
+| Guide | What |
+|---|---|
+| [Contributing](https://github.com/framerslab/agentos-workbench/blob/master/CONTRIBUTING.md) | Development setup, what CI runs, commit and pull request rules, review threads, contribution licensing |
+| [Agent instructions](https://github.com/framerslab/agentos-workbench/blob/master/AGENTS.md) | Commands and conventions for coding agents |
+| [Code of Conduct](https://github.com/framerslab/agentos-workbench/blob/master/.github/CODE_OF_CONDUCT.md) | Community standards |
+| [Security Policy](https://github.com/framerslab/agentos-workbench/blob/master/.github/SECURITY.md) | Reporting vulnerabilities privately |
+| [Support](https://github.com/framerslab/agentos-workbench/blob/master/SUPPORT.md) | Where to get help |
+
 ## License
 
 - **AgentOS core** ([`@framers/agentos`](https://github.com/framerslab/agentos)) — [Apache 2.0](https://github.com/framerslab/agentos/blob/master/LICENSE)
@@ -156,11 +162,11 @@ pnpm build:check      # Build + bundle report + budget enforcement
 
 <p align="center">
   <a href="https://agentos.sh">
-    <img src="../../logos/agentos-primary-no-tagline-transparent-2x.png" alt="AgentOS" height="36" />
+    <img src="public/logos/agentos-primary-no-tagline-transparent-2x.png" alt="AgentOS" height="36" />
   </a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
   <a href="https://frame.dev">
-    <img src="../../logos/frame-logo-green-transparent-4x.png" alt="Frame.dev" height="36" />
+    <img src="https://raw.githubusercontent.com/framerslab/agentos/master/assets/frame-logo-green-no-tagline.svg" alt="Frame.dev" height="36" />
   </a>
   <br /><br />
   Built by <a href="https://manic.agency">Manic Agency LLC</a> / <a href="https://frame.dev">Frame.dev</a>
