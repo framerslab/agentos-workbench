@@ -19,7 +19,7 @@ The repository holds three packages, each with its own dependencies:
 | `backend/` | The Fastify server the front end talks to | npm, with `backend/package-lock.json` |
 | `demo-automation/` | Scripts that record demo videos | npm, with `demo-automation/package-lock.json` |
 
-You need Node.js 20, the version CI uses, pnpm 10 (the `packageManager` field in `package.json` names the exact version) and npm.
+You need Node.js 22, the version CI uses, pnpm 10 (the `packageManager` field in `package.json` names the exact version) and npm.
 
 ```bash
 git clone https://github.com/framerslab/agentos-workbench.git
@@ -50,9 +50,12 @@ CI ([`ci.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.gith
 | Install | `pnpm install --no-frozen-lockfile` | The front end's dependencies install. |
 | Lockfiles | `npm ci --ignore-scripts --no-audit --no-fund` in `backend/` and `demo-automation/` | Each npm lockfile matches its `package.json`. |
 | Lint | `pnpm run -r --if-present lint` | ESLint over `src/`, with no warnings allowed. The root is the only package with a `lint` script. |
-| Test | `pnpm run -r --if-present test`, then the root's `test` script alone when that run fails | The root's tests pass. |
+| Test (front end) | `pnpm run --if-present test` | The root's tests pass. |
+| Test (backend) | `npm test` in `backend/` | The backend's tests pass. |
 
-The test step first runs the `test` script of every package that has one: the root's and the backend's. When that run fails, the step runs the root's `test` script alone and takes its result. So the root's tests decide the step, and a failing backend test does not fail CI. When you change `backend/`, run its tests yourself: `npm test` in `backend/`.
+A failure in either test step fails the job.
+
+The backend reads the skill and extension catalogs from the parent monorepo's `packages/agentos-skills` and `packages/agentos-extensions` when the checkout sits there, and from the `@framers/agentos-skills` and `@framers/agentos-extensions` npm packages otherwise. The npm catalog carries no pack directories or manifests, so in a standalone checkout a pack counts as installed when its npm package resolves from `backend/`.
 
 A coverage step follows. It runs only when the root has a Vitest configuration, and the root has none.
 

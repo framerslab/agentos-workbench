@@ -52,6 +52,12 @@ test('skills routes expose registry-backed catalog and detail', async () => {
 test('agentos routes expose registry-backed extensions, tools, and guardrails', async () => {
   const { graphRunStore } = await import('../src/services/graphRunStore');
   const { default: agentosRoutes } = await import('../src/routes/agentos');
+  // In the parent monorepo every pack's directory and manifest sit beside the workbench. A
+  // standalone checkout reads the catalog from the @framers/agentos-extensions package, and a
+  // pack counts as installed there only when its npm package resolves; the backend depends on
+  // none of them.
+  const { isMonorepoExtensionsCatalog } = await import('../src/lib/registryCatalog');
+  const inMonorepo = isMonorepoExtensionsCatalog();
   const app = Fastify();
   await app.register(agentosRoutes, { prefix: '/api/agentos' });
 
@@ -66,10 +72,12 @@ test('agentos routes expose registry-backed extensions, tools, and guardrails', 
       extension.package === '@framers/agentos-ext-channel-webchat'
     );
     assert.ok(webchat);
-    assert.equal(webchat.installed, true);
+    assert.equal(webchat.installed, inMonorepo);
     assert.equal(webchat.category, 'channels');
     assert.ok(Array.isArray(webchat.platforms));
-    assert.ok(webchat.platforms.includes('webchat'));
+    if (inMonorepo) {
+      assert.ok(webchat.platforms.includes('webchat'));
+    }
 
     const installCandidate = extensions.find((extension: { installed?: boolean }) => extension.installed === false);
 
@@ -102,7 +110,7 @@ test('agentos routes expose registry-backed extensions, tools, and guardrails', 
     const guardrails = guardrailsResponse.json();
     assert.equal(guardrails.tier, 'balanced');
     assert.equal(guardrails.packs.length, 5);
-    assert.ok(guardrails.packs.every((pack: { installed?: boolean }) => pack.installed === true));
+    assert.ok(guardrails.packs.every((pack: { installed?: boolean }) => pack.installed === inMonorepo));
 
     const configureResponse = await app.inject({
       method: 'POST',

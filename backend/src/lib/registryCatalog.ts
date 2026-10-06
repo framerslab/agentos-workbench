@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../../');
 const SKILLS_REGISTRY_ROOT = path.join(REPO_ROOT, 'packages/agentos-skills-registry');
-const EXTENSIONS_REGISTRY_ROOT = path.join(REPO_ROOT, 'packages/agentos-extensions');
+const MONOREPO_EXTENSIONS_ROOT = path.join(REPO_ROOT, 'packages/agentos-extensions');
 
 /**
  * Resolve the root directory that holds the skills content
@@ -52,6 +52,63 @@ function resolveSkillsContentRoot(): string | null {
 }
 
 /**
+ * Resolve the root directory that holds the extensions catalog (`registry.json`).
+ *
+ * 1. `packages/agentos-extensions` in the parent monorepo: the catalog, every
+ *    pack's directory and its `manifest.json`.
+ * 2. The installed `@framers/agentos-extensions` npm package (standalone
+ *    checkouts): the catalog alone. The package carries no pack directories or
+ *    manifests, so the fields read from a manifest stay empty, and a pack counts
+ *    as installed when its own npm package resolves from this backend.
+ *
+ * Memoized after the first hit; returns null when neither carries a
+ * registry.json (extensions then list as empty).
+ */
+let cachedExtensionsRegistryRoot: string | null | undefined;
+function resolveExtensionsRegistryRoot(): string | null {
+  if (cachedExtensionsRegistryRoot !== undefined) {
+    return cachedExtensionsRegistryRoot;
+  }
+  if (existsSync(path.join(MONOREPO_EXTENSIONS_ROOT, 'registry.json'))) {
+    cachedExtensionsRegistryRoot = MONOREPO_EXTENSIONS_ROOT;
+    return cachedExtensionsRegistryRoot;
+  }
+  try {
+    const registryJson = createRequire(__filename).resolve('@framers/agentos-extensions/registry.json');
+    cachedExtensionsRegistryRoot = path.dirname(registryJson);
+  } catch {
+    cachedExtensionsRegistryRoot = null;
+  }
+  return cachedExtensionsRegistryRoot;
+}
+
+/**
+ * Whether the extensions catalog comes from the parent monorepo, where every
+ * pack's directory and manifest sit beside the workbench.
+ */
+export function isMonorepoExtensionsCatalog(): boolean {
+  return resolveExtensionsRegistryRoot() === MONOREPO_EXTENSIONS_ROOT;
+}
+
+/**
+ * Whether an npm package resolves from this backend's dependency graph.
+ *
+ * Most packs list no `./package.json` in their `exports` map, and their sole
+ * `.` entry is import-only, so a CommonJS resolve of `<name>/package.json`
+ * raises ERR_PACKAGE_PATH_NOT_EXPORTED. Node raises that error only after it
+ * has found the package on disk, so it proves the package is there; only a
+ * resolution miss means it is absent.
+ */
+function isPackageResolvable(packageName: string): boolean {
+  try {
+    createRequire(__filename).resolve(`${packageName}/package.json`);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException | null)?.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED';
+  }
+}
+
+/**
  * Whether a guardrail pack's implementation is present in this environment.
  *
  * The five guardrail packs migrated out of the `agentos-extensions` monorepo
@@ -71,20 +128,7 @@ export function isGuardrailPackInstalled(packId: string, extensionInstalled?: bo
   if (existsSync(path.join(REPO_ROOT, `packages/agentos-ext-${packId}`, 'package.json'))) {
     return true;
   }
-  try {
-    createRequire(__filename).resolve(`@framers/agentos-ext-${packId}/package.json`);
-    return true;
-  } catch (err) {
-    // None of these packs list `./package.json` in their `exports` map, and
-    // their sole `.` entry is import-only, so a CommonJS resolve of either
-    // specifier raises ERR_PACKAGE_PATH_NOT_EXPORTED. That error is thrown
-    // only AFTER the package itself has been located on disk — it is proof of
-    // installation, not absence. Treating it as absence made this whole
-    // fallback dead code: it reported every genuinely installed standalone
-    // pack as missing, and the monorepo directory probe above was silently
-    // carrying the check. Only a resolution miss means "not installed".
-    return (err as NodeJS.ErrnoException | null)?.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED';
-  }
+  return isPackageResolvable(`@framers/agentos-ext-${packId}`);
 }
 const SECRET_ENV_MAP_SOURCE = path.join(
   REPO_ROOT,
@@ -485,19 +529,21 @@ export async function getWorkbenchSkill(name: string): Promise<(WorkbenchSkillIn
 }
 
 export async function listWorkbenchExtensions(): Promise<WorkbenchExtensionInfo[]> {
-  const registry = await readJsonFile<{
-    extensions?: {
-      curated?: ExtensionRegistryEntry[];
-      community?: ExtensionRegistryEntry[];
-    };
-  }>(path.join(EXTENSIONS_REGISTRY_ROOT, 'registry.json'));
+  const registryRoot = resolveExtensionsRegistryRoot();
+  const registry = registryRoot
+    ? await readJsonFile<{
+        extensions?: {
+          curated?: ExtensionRegistryEntry[];
+          community?: ExtensionRegistryEntry[];
+        };
+      }>(path.join(registryRoot, 'registry.json'))
+    : null;
   const secretEnvMap = await loadSecretEnvMap();
   const entries = [...(registry?.extensions?.curated ?? []), ...(registry?.extensions?.community ?? [])];
 
   const extensions = await Promise.all(entries.map(async (entry) => {
-    const manifestPath = entry.path
-      ? path.join(EXTENSIONS_REGISTRY_ROOT, entry.path, 'manifest.json')
-      : null;
+    const packDirectory = entry.path && registryRoot ? path.join(registryRoot, entry.path) : null;
+    const manifestPath = packDirectory ? path.join(packDirectory, 'manifest.json') : null;
     const manifest = manifestPath ? await readJsonFile<ExtensionManifest>(manifestPath) : null;
     const requiredSecrets = normalizeStringArray(manifest?.requiredSecrets);
     const requiredEnvVars = requiredSecrets
@@ -523,7 +569,9 @@ export async function listWorkbenchExtensions(): Promise<WorkbenchExtensionInfo[
       verified: Boolean(entry.verified),
       verifiedAt: entry.verifiedAt,
       verificationChecklistVersion: entry.verificationChecklistVersion,
-      installed: entry.path ? existsSync(path.join(EXTENSIONS_REGISTRY_ROOT, entry.path)) : false,
+      installed:
+        (packDirectory ? existsSync(packDirectory) : false) ||
+        (entry.package ? isPackageResolvable(entry.package) : false),
       tools: normalizeStringArray(entry.tools),
       features: normalizeStringArray(manifest?.features).length > 0
         ? normalizeStringArray(manifest?.features)
