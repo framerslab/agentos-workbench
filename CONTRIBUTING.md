@@ -73,7 +73,7 @@ Scripts that CI does not run:
 
 ### Tests
 
-The root's `test` script runs the test files it lists by name, with `node --test` through `tsx`. A test file that is not in that list does not run, so add a new test file to the list in `package.json`.
+The root's `test` script runs every `src/**/*.test.ts` and `scripts/*.test.mjs` file with `node --test` through `tsx`; `node --test` expands the patterns itself (Node 22). A new test file next to the code it tests runs without further setup.
 
 To run one test file: `node --test --import tsx src/lib/resultGroups.test.ts`. In `backend/`: `node --test --import tsx tests/planningStore.test.ts`.
 

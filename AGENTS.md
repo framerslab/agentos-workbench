@@ -64,7 +64,7 @@ To run the app: `pnpm dev` at the root starts the backend (port 3001) and the fr
 
 ## Conventions
 
-- The root's `test` script lists its test files by name. Add a new test file to that list in `package.json`, or it does not run.
+- The root's `test` script runs every `src/**/*.test.ts` and `scripts/*.test.mjs` file; `node --test` expands the patterns (Node 22).
 - A change to `backend/package.json` or `demo-automation/package.json` updates the lockfile beside it in the same change.
 - ESLint allows no warnings. Fix a warning; do not disable the rule.
 - Provider keys live in `backend/.env`, which is not tracked. Front-end settings start with `VITE_` and are public: never put a key in one.
