@@ -16,7 +16,7 @@
     "bundle:compare": "node scripts/checkBundleRegression.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx src/lib/taskOutcomeHealthFilters.test.ts src/lib/resultGroups.test.ts src/lib/toolExecutionResult.test.ts src/state/ragDocStore.test.ts scripts/bundleArtifacts.test.mjs scripts/bundleCli.test.mjs scripts/checkBundlePolicies.test.mjs scripts/generateBundleBaselineUpdate.test.mjs",
+    "test": "node --test --import tsx \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "e2e": "pnpm exec playwright test",
     "e2e:light": "PLAYWRIGHT_ARTIFACT_PROFILE=light pnpm exec playwright test",
@@ -86,7 +86,7 @@
     "vite-plugin-node-polyfills": "^0.22.0"
   },
   "engines": {
-    "node": ">=18.17.0"
+    "node": ">=22"
   },
   "packageManager": "pnpm@10.15.1",
   "repository": {
