@@ -16,7 +16,7 @@
     "bundle:compare": "node scripts/checkBundleRegression.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx 'src/**/*.test.ts' 'scripts/*.test.mjs'",
+    "test": "node --test --import tsx \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "e2e": "pnpm exec playwright test",
     "e2e:light": "PLAYWRIGHT_ARTIFACT_PROFILE=light pnpm exec playwright test",

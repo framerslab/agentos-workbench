@@ -8,7 +8,7 @@ This system uses Playwright for browser automation and screen recording, combine
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22 or later (the root `package.json` requires it)
 - FFmpeg (for video processing)
 - OpenAI API key (for LLM agent)
 
