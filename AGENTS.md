@@ -70,7 +70,7 @@ To run the app: `pnpm dev` at the root starts the backend (port 3001) and the fr
 - Provider keys live in `backend/.env`, which is not tracked. Front-end settings start with `VITE_` and are public: never put a key in one.
 - A route that returns demo data says so in its response. Keep that when you change a route.
 - Tests exercise the real path: an integration test for any behavior with an observable surface (a route, a store), unit tests for pure logic and regression pins, no filler tests.
-- A weekly workflow opens a pull request that moves `@framers/*` version pins to the latest published versions, then dispatches CI on its branch: GitHub holds the runs of a pull request that the workflow token opens until a maintainer approves them. Do not pin an older version of a package in this family.
+- A weekly workflow opens a pull request that moves `@framers/*` version pins to the latest published versions, then runs CI on its branch by dispatch and posts the result as the `CI (workflow_dispatch)` commit status: GitHub holds the runs of a pull request that the workflow token opens until a maintainer approves them. Do not pin an older version of a package in this family.
 - A bug in a first-party package this repository uses (`@framers/agentos`, `@framers/sql-storage-adapter`) is fixed in that package's repository and released. Do not add a workaround here.
 
 ## Commits and pull requests
