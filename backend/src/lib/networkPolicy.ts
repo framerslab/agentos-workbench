@@ -29,7 +29,8 @@
  *   accepts connections from other machines.
  * - `AGENTOS_WORKBENCH_ALLOWED_ORIGINS`: comma-separated browser origins that
  *   may call the backend. Default: the front end's dev server (port 5175) and
- *   preview server (port 4173) on `localhost` and `127.0.0.1`.
+ *   preview server (port 4173) on `localhost` and `127.0.0.1`. Behind an HTTPS
+ *   proxy, the backend's own public origin belongs here too.
  * - `AGENTOS_WORKBENCH_ALLOWED_HOSTS`: comma-separated host names the Host
  *   header may carry beside `localhost` and IP addresses, such as the name
  *   other machines use to reach this one.
@@ -103,13 +104,20 @@ function hostnameOf(hostHeader: string): string | null {
   }
 }
 
-/** Whether an Origin header names the host and port the Host header names, that is, a page this server served. */
+/**
+ * Whether an Origin header is this server's own origin, that is, a page this
+ * server served. The backend serves plain HTTP, so the origin must be exactly
+ * `http://` plus the Host header: `https://localhost` is another origin than
+ * `http://localhost`, though both omit their default port. Behind an HTTPS
+ * proxy, list the public origin in AGENTOS_WORKBENCH_ALLOWED_ORIGINS.
+ */
 function isSameOrigin(origin: string, hostHeader: string | undefined): boolean {
-  if (hostHeader === undefined || normalizeOrigin(origin) === null) {
+  const normalized = normalizeOrigin(origin);
+  if (hostHeader === undefined || normalized === null) {
     return false;
   }
   try {
-    return new URL(origin).host === new URL(`http://${hostHeader}`).host;
+    return normalized === new URL(`http://${hostHeader}`).origin;
   } catch {
     return false;
   }

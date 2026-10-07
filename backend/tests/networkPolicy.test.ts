@@ -87,14 +87,21 @@ test("a same-origin request from a page this server served is allowed", async ()
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { ok: true });
 
-    // Another port on the same host is another origin.
-    const otherPort = await app.inject({
-      method: 'POST',
-      url: '/api/agentos/skills/enable',
-      headers: { host: 'localhost:3001', origin: 'http://localhost:8080' },
-      payload: { name: 'web-search' },
-    });
-    assert.equal(otherPort.statusCode, 403);
+    // Another port, or another scheme, on the same host is another origin. Both https://localhost
+    // and http://localhost omit their default port.
+    for (const [host, origin] of [
+      ['localhost:3001', 'http://localhost:8080'],
+      ['localhost', 'https://localhost'],
+      ['localhost:3001', 'https://localhost:3001'],
+    ]) {
+      const other = await app.inject({
+        method: 'POST',
+        url: '/api/agentos/skills/enable',
+        headers: { host, origin },
+        payload: { name: 'web-search' },
+      });
+      assert.equal(other.statusCode, 403, `${origin} on ${host}`);
+    }
   });
 });
 
