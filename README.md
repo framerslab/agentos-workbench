@@ -80,7 +80,7 @@ AGENTOS_WORKBENCH_EVALUATION_STORE_PATH=../.data/evaluation-store.json
 AGENTOS_WORKBENCH_PLANNING_STORE_PATH=../.data/planning-store.json
 ```
 
-The backend has no login, and it runs with your provider keys loaded. It listens on `localhost`, answers browser requests only from the workbench front end (ports 5175 and 4173), and refuses a request whose Host header names another site. To reach it from another machine, set `AGENTOS_WORKBENCH_BACKEND_HOST=0.0.0.0`, list the front end's origin in `AGENTOS_WORKBENCH_ALLOWED_ORIGINS`, and run it only on a network you trust.
+The backend has no login, and it runs with your provider keys loaded. It listens on `localhost` and answers browser requests only from the workbench front end (ports 5175 and 4173). It refuses a request from another site's page, including an image or a link that carries no Origin header, and a request whose Host header names another site. To reach it from another machine, set `AGENTOS_WORKBENCH_BACKEND_HOST=0.0.0.0`, list the front end's origin in `AGENTOS_WORKBENCH_ALLOWED_ORIGINS` and the name other machines use for this one in `AGENTOS_WORKBENCH_ALLOWED_HOSTS` (an IP address needs no entry), and run it only on a network you trust.
 
 Provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) should be set in the backend environment. AgentOS supports [11 LLM providers](https://docs.agentos.sh/features/llm-output-validation) with automatic fallback chains.
 

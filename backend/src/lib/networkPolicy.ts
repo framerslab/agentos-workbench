@@ -2,11 +2,20 @@
  * Who may reach the workbench backend.
  *
  * The backend has no login and runs with the developer's provider keys loaded,
- * so by default it listens on the loopback interface only, answers browser
- * requests only from the workbench front end's own origins, and refuses a
- * request whose Host header names another site. A page on another site can
- * point its own name at 127.0.0.1 (DNS rebinding); its requests then reach
- * this server with that site's name in the Host header.
+ * so by default it listens on the loopback interface only and refuses three
+ * kinds of request:
+ *
+ * - A request whose Origin header is not one of the workbench front end's
+ *   origins.
+ * - A cross-site request without an Origin header. An image, a script or a link
+ *   on another site's page sends none, and a GET such as
+ *   `/api/agentos/stream?messages=...` starts a model run. Browsers mark these
+ *   requests `Sec-Fetch-Site: cross-site`.
+ * - A request whose Host header names another site. A page on another site can
+ *   point its own name at this machine (DNS rebinding); its requests then reach
+ *   this server as same-origin requests with that site's name in the Host
+ *   header. A Host that is an IP address is accepted on every listen address:
+ *   a browser sends one only to a page served from that address.
  *
  * Environment:
  * - `AGENTOS_WORKBENCH_BACKEND_HOST`: the address to listen on. Default
@@ -16,11 +25,21 @@
  *   may call the backend. Default: the front end's dev server (port 5175) and
  *   preview server (port 4173) on `localhost` and `127.0.0.1`.
  * - `AGENTOS_WORKBENCH_ALLOWED_HOSTS`: comma-separated host names the Host
- *   header may carry beside the loopback names. The Host check applies while
- *   the backend listens on a loopback address, or when this variable is set.
+ *   header may carry beside `localhost` and IP addresses, such as the name
+ *   other machines use to reach this one.
+ * - `AGENTOS_WORKBENCH_PUBLIC_HOST`: the host the Swagger docs advertise. Its
+ *   name is allowed in the Host header too.
  */
 import type { FastifyInstance } from 'fastify';
 import type { ServerResponse } from 'node:http';
+import { isIP } from 'node:net';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The policy {@link registerNetworkGuards} enforces on this server; read it with {@link policyOf}. */
+    networkPolicy: NetworkPolicy;
+  }
+}
 
 /** The front end's dev and preview servers, which call the backend directly. */
 export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
@@ -30,15 +49,13 @@ export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
   'http://127.0.0.1:4173',
 ];
 
-const LOOPBACK_HOSTNAMES: readonly string[] = ['localhost', '127.0.0.1', '::1'];
-
 export interface NetworkPolicy {
   /** The address the server listens on. */
   listenHost: string;
   /** Browser origins allowed to call the backend, normalized by {@link normalizeOrigin}. */
   allowedOrigins: ReadonlySet<string>;
-  /** Host names the Host header may carry, or null when the Host check is off. */
-  allowedHostnames: ReadonlySet<string> | null;
+  /** Host names the Host header may carry; an IP address is always allowed. */
+  allowedHostnames: ReadonlySet<string>;
 }
 
 function splitList(value: string | undefined): string[] {
@@ -85,19 +102,12 @@ export function resolveNetworkPolicy(env: NodeJS.ProcessEnv = process.env): Netw
       .filter((origin): origin is string => origin !== null),
   );
 
-  const extraHostnames = splitList(env.AGENTOS_WORKBENCH_ALLOWED_HOSTS)
-    .map((host) => hostnameOf(host))
-    .filter((host): host is string => host !== null);
-  const listenHostname = hostnameOf(listenHost) ?? listenHost.toLowerCase();
-  const listensOnLoopback = LOOPBACK_HOSTNAMES.includes(listenHostname);
-
-  let allowedHostnames: Set<string> | null = null;
-  if (listensOnLoopback || extraHostnames.length > 0) {
-    allowedHostnames = new Set([...LOOPBACK_HOSTNAMES, ...extraHostnames]);
-    const publicHost = env.AGENTOS_WORKBENCH_PUBLIC_HOST?.trim();
-    const publicHostname = publicHost ? hostnameOf(publicHost) : null;
-    if (publicHostname) {
-      allowedHostnames.add(publicHostname);
+  const allowedHostnames = new Set(['localhost']);
+  const publicHost = env.AGENTOS_WORKBENCH_PUBLIC_HOST?.trim();
+  for (const host of [...splitList(env.AGENTOS_WORKBENCH_ALLOWED_HOSTS), ...(publicHost ? [publicHost] : [])]) {
+    const hostname = hostnameOf(host);
+    if (hostname) {
+      allowedHostnames.add(hostname);
     }
   }
 
@@ -113,9 +123,19 @@ export function getNetworkPolicy(): NetworkPolicy {
 }
 
 /**
+ * The policy a server enforces: the one {@link registerNetworkGuards} stored on
+ * it, or the process policy for an instance built without the guards (a test
+ * that registers a single route plugin).
+ */
+export function policyOf(app: FastifyInstance): NetworkPolicy {
+  return app.hasDecorator('networkPolicy') ? app.networkPolicy : getNetworkPolicy();
+}
+
+/**
  * Whether a request's Origin header is allowed. A request without one is
- * allowed: browsers omit it on same-origin GET requests, and non-browser
- * clients do not send it.
+ * allowed here: browsers omit it on same-origin GET requests, and non-browser
+ * clients do not send it. {@link registerNetworkGuards} refuses the cross-site
+ * requests among those.
  */
 export function isOriginAllowed(origin: string | undefined, policy: NetworkPolicy): boolean {
   if (origin === undefined) {
@@ -125,31 +145,42 @@ export function isOriginAllowed(origin: string | undefined, policy: NetworkPolic
   return normalized !== null && policy.allowedOrigins.has(normalized);
 }
 
-/** Whether a request's Host header names this server. */
+/**
+ * Whether a request's Host header names this server: an IP address, or a host
+ * name the policy lists (`localhost` by default). DNS rebinding needs a name
+ * the attacker's DNS answers for, so an IP address is safe. A request without a
+ * Host header is allowed; browsers always send one.
+ */
 export function isHostAllowed(hostHeader: string | undefined, policy: NetworkPolicy): boolean {
-  if (policy.allowedHostnames === null || hostHeader === undefined) {
+  if (hostHeader === undefined) {
     return true;
   }
   const hostname = hostnameOf(hostHeader);
-  return hostname !== null && policy.allowedHostnames.has(hostname);
+  return hostname !== null && (isIP(hostname) !== 0 || policy.allowedHostnames.has(hostname));
 }
 
 /**
- * Refuses, with 403, every request whose Host or Origin header the policy does
- * not allow. Register it before the CORS plugin and the routes, so the refusal
- * comes before a preflight answer, before body parsing, and before any route
- * runs. Refusing a disallowed origin outright matters beyond CORS: a browser
- * sends some cross-site requests (a form post, for example) without a
- * preflight, and CORS only stops the page from reading the response.
+ * Refuses, with 403, every request the policy does not allow (see the module
+ * comment), and stores the policy on the server for {@link policyOf}. Register
+ * it before the CORS plugin and the routes, so the refusal comes before a
+ * preflight answer, before body parsing, and before any route runs. Refusing
+ * outright matters beyond CORS: a browser sends some cross-site requests (a
+ * form post, an image) without a preflight, and CORS only stops the page from
+ * reading the response.
  */
 export function registerNetworkGuards(app: FastifyInstance, policy: NetworkPolicy): void {
+  app.decorate('networkPolicy', policy);
   app.addHook('onRequest', async (request, reply) => {
     if (!isHostAllowed(request.headers.host, policy)) {
       return reply.code(403).send({ error: 'Host not allowed' });
     }
     const origin = request.headers.origin;
-    if (!isOriginAllowed(typeof origin === 'string' ? origin : undefined, policy)) {
-      return reply.code(403).send({ error: 'Origin not allowed' });
+    if (typeof origin === 'string') {
+      if (!isOriginAllowed(origin, policy)) {
+        return reply.code(403).send({ error: 'Origin not allowed' });
+      }
+    } else if (request.headers['sec-fetch-site'] === 'cross-site') {
+      return reply.code(403).send({ error: 'Cross-site request not allowed' });
     }
   });
 }
@@ -157,12 +188,13 @@ export function registerNetworkGuards(app: FastifyInstance, policy: NetworkPolic
 /**
  * Sets the CORS headers on a raw streaming response, which the CORS plugin
  * does not reach. Only an allowed origin is echoed back; a request without an
- * Origin header gets no CORS headers.
+ * Origin header gets no CORS headers. Pass the server's policy:
+ * `applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server))`.
  */
 export function applyStreamCorsHeaders(
   origin: string | string[] | undefined,
   raw: Pick<ServerResponse, 'setHeader'>,
-  policy: NetworkPolicy = getNetworkPolicy(),
+  policy: NetworkPolicy,
 ): void {
   if (typeof origin !== 'string' || !isOriginAllowed(origin, policy)) {
     return;

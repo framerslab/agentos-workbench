@@ -14,7 +14,7 @@ import {
   mockModels,
   mockExecutions
 } from '../mockData';
-import { applyStreamCorsHeaders } from '../lib/networkPolicy';
+import { applyStreamCorsHeaders, policyOf } from '../lib/networkPolicy';
 import {
   isGuardrailPackInstalled,
   listGuardrailExtensions,
@@ -598,7 +598,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     const { userId, mode, conversationId, messages, model, workflowRequest, agencyRequest } = request.query as any;
     
     // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
-    applyStreamCorsHeaders(request.headers.origin, reply.raw);
+    applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server));
     
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
@@ -923,7 +923,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       roles: parsedRoles,
     });
     // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
-    applyStreamCorsHeaders(request.headers.origin, reply.raw);
+    applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server));
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');
@@ -1015,7 +1015,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
         ? Array.from(pendingWorkflowExecutions.values()).find((candidate) => candidate.workflowId === workflowId)
         : undefined);
     // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
-    applyStreamCorsHeaders(request.headers.origin, reply.raw);
+    applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server));
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');

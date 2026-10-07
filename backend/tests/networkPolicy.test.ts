@@ -11,6 +11,8 @@ import {
 
 const FRONT_END = 'http://localhost:5175';
 const OTHER_SITE = 'https://attacker.example';
+// A streaming route that answers an unknown execution with an error event, so it runs no model.
+const STREAM_URL = '/api/agentos/agency/workflow/stream?executionId=missing';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
 
@@ -29,8 +31,7 @@ test('the default policy listens on localhost and allows the front end origins',
   for (const origin of DEFAULT_ALLOWED_ORIGINS) {
     assert.ok(policy.allowedOrigins.has(origin), origin);
   }
-  assert.ok(policy.allowedHostnames?.has('localhost'));
-  assert.ok(policy.allowedHostnames?.has('::1'));
+  assert.deepEqual([...policy.allowedHostnames], ['localhost']);
 });
 
 test('a request without an Origin header is served without CORS headers', async () => {
@@ -74,6 +75,35 @@ test('a request from another site is refused before the route runs', async () =>
   });
 });
 
+test('a cross-site request without an Origin header is refused before the route runs', async () => {
+  await withServer({}, async (app) => {
+    // An image or a link on another site's page sends no Origin header, and a GET to a
+    // streaming route starts a model run.
+    const embedded = await app.inject({
+      method: 'GET',
+      url: STREAM_URL,
+      headers: { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' },
+    });
+    assert.equal(embedded.statusCode, 403);
+    assert.deepEqual(embedded.json(), { error: 'Cross-site request not allowed' });
+
+    // The front end's dev proxy forwards same-origin requests, a typed URL is 'none', and the
+    // front end on another localhost port is same-site.
+    for (const site of ['same-origin', 'none', 'same-site']) {
+      const response = await app.inject({ method: 'GET', url: '/health', headers: { 'sec-fetch-site': site } });
+      assert.equal(response.statusCode, 200, site);
+    }
+
+    // With an allowed Origin header, a cross-site request (front end on 127.0.0.1, backend on localhost) is served.
+    const frontEnd = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { origin: 'http://127.0.0.1:5175', 'sec-fetch-site': 'cross-site' },
+    });
+    assert.equal(frontEnd.statusCode, 200);
+  });
+});
+
 test('a preflight from another site is refused, and one from the front end is answered', async () => {
   await withServer({}, async (app) => {
     const refused = await app.inject({
@@ -100,31 +130,47 @@ test('the null origin of a sandboxed document is refused', async () => {
   });
 });
 
-test('a Host header naming another site is refused while the backend listens on loopback', async () => {
+test('a Host header naming another site is refused', async () => {
   await withServer({}, async (app) => {
     // DNS rebinding: another site's name resolves to 127.0.0.1 and its pages call this server.
-    const rebound = await app.inject({ method: 'GET', url: '/health', headers: { host: 'attacker.example:3001' } });
-    assert.equal(rebound.statusCode, 403);
-    assert.deepEqual(rebound.json(), { error: 'Host not allowed' });
+    for (const host of ['attacker.example:3001', 'localhost.attacker.example:3001', 'localhost@attacker.example:3001']) {
+      const rebound = await app.inject({ method: 'GET', url: '/health', headers: { host } });
+      assert.equal(rebound.statusCode, 403, host);
+      assert.deepEqual(rebound.json(), { error: 'Host not allowed' });
+    }
 
-    for (const host of ['localhost:3001', '127.0.0.1:3001', '[::1]:3001']) {
+    for (const host of ['localhost:3001', 'LOCALHOST:3001', '127.0.0.1:3001', '[::1]:3001']) {
       const response = await app.inject({ method: 'GET', url: '/health', headers: { host } });
       assert.equal(response.statusCode, 200, host);
     }
   });
 });
 
-test('listening on all interfaces turns the Host check off unless allowed hosts are listed', async () => {
-  await withServer({ AGENTOS_WORKBENCH_BACKEND_HOST: '0.0.0.0' }, async (app) => {
-    const response = await app.inject({ method: 'GET', url: '/health', headers: { host: 'workbench.lan:3001' } });
-    assert.equal(response.statusCode, 200);
-  });
+test('on every listen address the Host header must be localhost, an IP address or a listed name', async () => {
+  for (const listen of ['0.0.0.0', '::', '127.0.0.2']) {
+    await withServer({ AGENTOS_WORKBENCH_BACKEND_HOST: listen }, async (app) => {
+      for (const host of ['192.168.1.20:3001', '[fe80::1]:3001', 'localhost:3001']) {
+        const response = await app.inject({ method: 'GET', url: '/health', headers: { host } });
+        assert.equal(response.statusCode, 200, `${listen} ${host}`);
+      }
+      for (const host of ['attacker.example:3001', 'workbench.lan:3001']) {
+        const response = await app.inject({ method: 'GET', url: '/health', headers: { host } });
+        assert.equal(response.statusCode, 403, `${listen} ${host}`);
+      }
+    });
+  }
 
   await withServer(
-    { AGENTOS_WORKBENCH_BACKEND_HOST: '0.0.0.0', AGENTOS_WORKBENCH_ALLOWED_HOSTS: 'workbench.lan' },
+    {
+      AGENTOS_WORKBENCH_BACKEND_HOST: '0.0.0.0',
+      AGENTOS_WORKBENCH_ALLOWED_HOSTS: 'workbench.lan',
+      AGENTOS_WORKBENCH_PUBLIC_HOST: 'docs.workbench.lan:3001',
+    },
     async (app) => {
-      const listed = await app.inject({ method: 'GET', url: '/health', headers: { host: 'workbench.lan:3001' } });
-      assert.equal(listed.statusCode, 200);
+      for (const host of ['workbench.lan:3001', 'docs.workbench.lan:3001']) {
+        const response = await app.inject({ method: 'GET', url: '/health', headers: { host } });
+        assert.equal(response.statusCode, 200, host);
+      }
       const unlisted = await app.inject({ method: 'GET', url: '/health', headers: { host: 'attacker.example:3001' } });
       assert.equal(unlisted.statusCode, 403);
     },
@@ -146,6 +192,24 @@ test('AGENTOS_WORKBENCH_ALLOWED_ORIGINS replaces the default list', async () => 
 
     const defaultOrigin = await app.inject({ method: 'GET', url: '/health', headers: { origin: FRONT_END } });
     assert.equal(defaultOrigin.statusCode, 403);
+  });
+});
+
+test('a streaming route sends CORS headers for the origins of the policy the server was built with', async () => {
+  // The process policy does not list this origin; the route must use the server's policy.
+  const origin = 'https://workbench.example.com';
+  await withServer({ AGENTOS_WORKBENCH_ALLOWED_ORIGINS: origin }, async (app) => {
+    const response = await app.inject({ method: 'GET', url: STREAM_URL, headers: { origin } });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['access-control-allow-origin'], origin);
+    assert.equal(response.headers['access-control-allow-credentials'], 'true');
+    assert.match(response.payload, /Workflow execution not found/);
+  });
+
+  await withServer({}, async (app) => {
+    const response = await app.inject({ method: 'GET', url: STREAM_URL, headers: { origin: FRONT_END } });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['access-control-allow-origin'], FRONT_END);
   });
 });
 
