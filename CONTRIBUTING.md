@@ -37,7 +37,7 @@ cp backend/.env.example backend/.env   # then add your provider keys
 pnpm dev
 ```
 
-`pnpm dev` starts the backend on port 3001 and the front end on `http://localhost:5175`. To run one side alone, use `npm run dev` in `backend/` or `pnpm dev:front` at the root.
+`pnpm dev` starts the backend on port 3001 and the front end on `http://localhost:5175`. To run one side alone, use `npm run dev` in `backend/` or `pnpm dev:front` at the root. The backend listens on `localhost` and answers browser requests from the front end's origins only; the README's backend environment section lists the variables that change this.
 
 The tracked `.env.local` points the front end at the backend on `http://localhost:3001`, and the dev server also proxies `/api` there. [`.env.example`](https://github.com/framerslab/agentos-workbench/blob/master/.env.example) describes each front-end setting. The backend reads `backend/.env`, which is not tracked: provider keys go there and nowhere else.
 

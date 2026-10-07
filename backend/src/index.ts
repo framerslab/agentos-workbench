@@ -1,4 +1,4 @@
-import fastify from 'fastify';
+import fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -28,25 +28,41 @@ import playgroundRoutes from './routes/playground';
 import { initializeAgentOS, persistAgentOSRuntimeRag, shutdownAgentOS } from './lib/agentos';
 import { WORKBENCH_RUNTIME_RAG_DOCUMENT_PERSIST_PATH } from './lib/workbenchRuntimeRag';
 import { runtimeRagDocumentStore } from './services/runtimeRagDocumentStore';
+import { getNetworkPolicy, registerNetworkGuards, type NetworkPolicy } from './lib/networkPolicy';
 import { config } from 'dotenv';
 config()
 
-const server = fastify({
-  logger: true
-});
-
-/**
- * Main application setup.
- */
-async function main() {
-  await initializeAgentOS();
-  await runtimeRagDocumentStore.initialize(WORKBENCH_RUNTIME_RAG_DOCUMENT_PERSIST_PATH);
+/** The port to listen on, from the environment. */
+function resolvePort(): number {
   const configuredPort = Number(
     process.env.AGENTOS_WORKBENCH_BACKEND_PORT ?? process.env.PORT ?? 3001
   );
-  const port = Number.isFinite(configuredPort) ? configuredPort : 3001;
-  const host = process.env.AGENTOS_WORKBENCH_BACKEND_HOST?.trim() || '0.0.0.0';
+  return Number.isFinite(configuredPort) ? configuredPort : 3001;
+}
+
+export interface BuildServerOptions {
+  /** Who may reach the server; defaults to the policy read from the environment. */
+  policy?: NetworkPolicy;
+  /** Fastify's request logger; on by default. */
+  logger?: boolean;
+  /** The port reported by `/health` and advertised in the API docs. */
+  port?: number;
+}
+
+/**
+ * Builds the server with its plugins and routes. It neither starts AgentOS nor
+ * listens; `main()` does both, and tests inject requests into the result.
+ */
+export async function buildServer(options: BuildServerOptions = {}): Promise<FastifyInstance> {
+  const policy = options.policy ?? getNetworkPolicy();
+  const port = options.port ?? resolvePort();
   const swaggerHost = process.env.AGENTOS_WORKBENCH_PUBLIC_HOST?.trim() || `localhost:${port}`;
+  const server = fastify({
+    logger: options.logger ?? true
+  });
+
+  // Refuse a disallowed Host or Origin before any other hook or route runs.
+  registerNetworkGuards(server, policy);
 
   // Register Swagger
   await server.register(swagger, {
@@ -73,9 +89,9 @@ async function main() {
     transformStaticCSP: (header) => header
   });
 
-  // Register CORS
+  // Register CORS for the allowed origins only
   await server.register(cors, {
-    origin: true, // Allow all origins for dev/workbench
+    origin: [...policy.allowedOrigins],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
   });
@@ -136,6 +152,19 @@ async function main() {
     return { status: 'ok', port };
   });
 
+  return server;
+}
+
+/**
+ * Starts AgentOS, builds the server and listens.
+ */
+async function main() {
+  await initializeAgentOS();
+  await runtimeRagDocumentStore.initialize(WORKBENCH_RUNTIME_RAG_DOCUMENT_PERSIST_PATH);
+  const port = resolvePort();
+  const policy = getNetworkPolicy();
+  const server = await buildServer({ policy, port });
+
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
     if (shuttingDown) {
@@ -163,7 +192,7 @@ async function main() {
   });
 
   try {
-    await server.listen({ port, host });
+    await server.listen({ port, host: policy.listenHost });
     console.log(`Server listening on http://localhost:${port}`);
   } catch (err) {
     server.log.error(err);
@@ -171,4 +200,7 @@ async function main() {
   }
 }
 
-main();
+// Start only when run as the entry point, so tests can import buildServer.
+if (require.main === module) {
+  void main();
+}

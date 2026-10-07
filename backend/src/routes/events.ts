@@ -33,6 +33,7 @@
  */
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { applyStreamCorsHeaders, policyOf } from '../lib/networkPolicy';
 
 // ---------------------------------------------------------------------------
 // Broadcaster singleton
@@ -190,6 +191,8 @@ export default async function eventsRoutes(fastify: FastifyInstance): Promise<vo
   fastify.get('/events', async (request: FastifyRequest, reply: FastifyReply) => {
     const clientId = `sse-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
+    applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server));
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');
