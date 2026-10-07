@@ -5,12 +5,16 @@
  * so by default it listens on the loopback interface only and refuses three
  * kinds of request:
  *
- * - A request whose Origin header is not one of the workbench front end's
- *   origins.
+ * - A request whose Origin header is neither one of the workbench front end's
+ *   origins nor this server's own origin (a same-origin POST from the Swagger
+ *   UI at /documentation carries `Origin: http://localhost:3001`).
  * - A cross-site request without an Origin header. An image, a script or a link
  *   on another site's page sends none, and a GET such as
  *   `/api/agentos/stream?messages=...` starts a model run. Browsers mark these
- *   requests `Sec-Fetch-Site: cross-site`.
+ *   requests `Sec-Fetch-Site: cross-site`. Browsers without Fetch Metadata
+ *   (Chrome before 76, Firefox before 90, Safari before 16.4) send no such
+ *   header, so this rule does not cover them: a request with neither header is
+ *   served, because non-browser clients send neither.
  * - A request whose Host header names another site. A page on another site can
  *   point its own name at this machine (DNS rebinding); its requests then reach
  *   this server as same-origin requests with that site's name in the Host
@@ -82,12 +86,27 @@ export function normalizeOrigin(origin: string): string | null {
   }
 }
 
-/** The host name of a Host header value (`name[:port]` or `[ipv6][:port]`), lowercased. */
+/**
+ * The host name of a Host header value (`name[:port]` or `[ipv6][:port]`),
+ * lowercased, without the brackets of an IPv6 address or a trailing dot.
+ */
 function hostnameOf(hostHeader: string): string | null {
   try {
-    return new URL(`http://${hostHeader}`).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    return new URL(`http://${hostHeader}`).hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
   } catch {
     return null;
+  }
+}
+
+/** Whether an Origin header names the host and port the Host header names, that is, a page this server served. */
+function isSameOrigin(origin: string, hostHeader: string | undefined): boolean {
+  if (hostHeader === undefined || normalizeOrigin(origin) === null) {
+    return false;
+  }
+  try {
+    return new URL(origin).host === new URL(`http://${hostHeader}`).host;
+  } catch {
+    return false;
   }
 }
 
@@ -176,7 +195,8 @@ export function registerNetworkGuards(app: FastifyInstance, policy: NetworkPolic
     }
     const origin = request.headers.origin;
     if (typeof origin === 'string') {
-      if (!isOriginAllowed(origin, policy)) {
+      // The Host check above has passed, so a same-origin request comes from a page this server served.
+      if (!isOriginAllowed(origin, policy) && !isSameOrigin(origin, request.headers.host)) {
         return reply.code(403).send({ error: 'Origin not allowed' });
       }
     } else if (request.headers['sec-fetch-site'] === 'cross-site') {

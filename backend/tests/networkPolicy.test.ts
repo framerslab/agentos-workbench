@@ -75,6 +75,29 @@ test('a request from another site is refused before the route runs', async () =>
   });
 });
 
+test("a same-origin request from a page this server served is allowed", async () => {
+  await withServer({}, async (app) => {
+    // The Swagger UI at /documentation posts to the API with the backend's own origin.
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/agentos/skills/enable',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:3001' },
+      payload: { name: 'web-search' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { ok: true });
+
+    // Another port on the same host is another origin.
+    const otherPort = await app.inject({
+      method: 'POST',
+      url: '/api/agentos/skills/enable',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:8080' },
+      payload: { name: 'web-search' },
+    });
+    assert.equal(otherPort.statusCode, 403);
+  });
+});
+
 test('a cross-site request without an Origin header is refused before the route runs', async () => {
   await withServer({}, async (app) => {
     // An image or a link on another site's page sends no Origin header, and a GET to a
@@ -139,7 +162,7 @@ test('a Host header naming another site is refused', async () => {
       assert.deepEqual(rebound.json(), { error: 'Host not allowed' });
     }
 
-    for (const host of ['localhost:3001', 'LOCALHOST:3001', '127.0.0.1:3001', '[::1]:3001']) {
+    for (const host of ['localhost:3001', 'LOCALHOST:3001', 'localhost.:3001', '127.0.0.1:3001', '[::1]:3001']) {
       const response = await app.inject({ method: 'GET', url: '/health', headers: { host } });
       assert.equal(response.statusCode, 200, host);
     }

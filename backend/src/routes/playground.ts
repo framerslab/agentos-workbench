@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { getAgentOS } from '../lib/agentos';
 import { resolveTools, listAvailableToolNames } from '../services/toolCatalog';
 import { streamText as agentosStreamText, generateText as agentosGenerateText } from '@framers/agentos';
+import { applyStreamCorsHeaders, policyOf } from '../lib/networkPolicy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -307,6 +308,8 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
       const agentos = await resolveAgentOS();
       const runtimeMode = getPlaygroundRuntimeMode(agentos, 'streamText');
 
+      // reply.raw bypasses the CORS plugin, so the stream sets its own CORS headers.
+      applyStreamCorsHeaders(request.headers.origin, reply.raw, policyOf(request.server));
       reply.raw.setHeader('Content-Type', 'text/event-stream');
       reply.raw.setHeader('Cache-Control', 'no-cache');
       reply.raw.setHeader('Connection', 'keep-alive');
