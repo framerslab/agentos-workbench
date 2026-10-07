@@ -98,21 +98,22 @@ test("a same-origin request from a page this server served is allowed", async ()
   });
 });
 
-test('a cross-site request without an Origin header is refused before the route runs', async () => {
+test('a cross-origin request without an Origin header is refused before the route runs', async () => {
   await withServer({}, async (app) => {
-    // An image or a link on another site's page sends no Origin header, and a GET to a
-    // streaming route starts a model run.
-    const embedded = await app.inject({
-      method: 'GET',
-      url: STREAM_URL,
-      headers: { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' },
-    });
-    assert.equal(embedded.statusCode, 403);
-    assert.deepEqual(embedded.json(), { error: 'Cross-site request not allowed' });
+    // An image or a link on another site's page, or on a page from another port of this host
+    // (same-site), sends no Origin header, and a GET to a streaming route starts a model run.
+    for (const site of ['cross-site', 'same-site']) {
+      const embedded = await app.inject({
+        method: 'GET',
+        url: STREAM_URL,
+        headers: { 'sec-fetch-site': site, 'sec-fetch-mode': 'no-cors' },
+      });
+      assert.equal(embedded.statusCode, 403, site);
+      assert.deepEqual(embedded.json(), { error: 'Cross-origin request not allowed' });
+    }
 
-    // The front end's dev proxy forwards same-origin requests, a typed URL is 'none', and the
-    // front end on another localhost port is same-site.
-    for (const site of ['same-origin', 'none', 'same-site']) {
+    // The front end's dev proxy forwards same-origin requests, and a typed URL is 'none'.
+    for (const site of ['same-origin', 'none']) {
       const response = await app.inject({ method: 'GET', url: '/health', headers: { 'sec-fetch-site': site } });
       assert.equal(response.statusCode, 200, site);
     }

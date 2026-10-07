@@ -8,13 +8,15 @@
  * - A request whose Origin header is neither one of the workbench front end's
  *   origins nor this server's own origin (a same-origin POST from the Swagger
  *   UI at /documentation carries `Origin: http://localhost:3001`).
- * - A cross-site request without an Origin header. An image, a script or a link
- *   on another site's page sends none, and a GET such as
- *   `/api/agentos/stream?messages=...` starts a model run. Browsers mark these
- *   requests `Sec-Fetch-Site: cross-site`. Browsers without Fetch Metadata
- *   (Chrome before 76, Firefox before 90, Safari before 16.4) send no such
- *   header, so this rule does not cover them: a request with neither header is
- *   served, because non-browser clients send neither.
+ * - A cross-origin request without an Origin header. An image, a script or a
+ *   link on another site's page, or on a page served from another port of this
+ *   host, sends none, and a GET such as `/api/agentos/stream?messages=...`
+ *   starts a model run. Browsers mark these requests `Sec-Fetch-Site:
+ *   cross-site` or `same-site`. A request without an Origin header is served
+ *   when it is `same-origin` (the front end's dev proxy, the Swagger UI's
+ *   assets), `none` (a typed URL) or carries no Fetch Metadata at all:
+ *   non-browser clients send none, and neither do browsers older than Chrome
+ *   76, Firefox 90 and Safari 16.4, which this rule therefore does not cover.
  * - A request whose Host header names another site. A page on another site can
  *   point its own name at this machine (DNS rebinding); its requests then reach
  *   this server as same-origin requests with that site's name in the Host
@@ -44,6 +46,9 @@ declare module 'fastify' {
     networkPolicy: NetworkPolicy;
   }
 }
+
+/** `Sec-Fetch-Site` values of a request a page on another origin sent. */
+const CROSS_ORIGIN_FETCH_SITES: ReadonlySet<string> = new Set(['cross-site', 'same-site']);
 
 /** The front end's dev and preview servers, which call the backend directly. */
 export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
@@ -199,8 +204,8 @@ export function registerNetworkGuards(app: FastifyInstance, policy: NetworkPolic
       if (!isOriginAllowed(origin, policy) && !isSameOrigin(origin, request.headers.host)) {
         return reply.code(403).send({ error: 'Origin not allowed' });
       }
-    } else if (request.headers['sec-fetch-site'] === 'cross-site') {
-      return reply.code(403).send({ error: 'Cross-site request not allowed' });
+    } else if (CROSS_ORIGIN_FETCH_SITES.has(String(request.headers['sec-fetch-site']))) {
+      return reply.code(403).send({ error: 'Cross-origin request not allowed' });
     }
   });
 }
