@@ -5,6 +5,10 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  # The weekly bump workflow dispatches CI on its pull request branch, because
+  # GitHub holds the pull_request runs of a pull request that GITHUB_TOKEN opens
+  # until a maintainer approves them.
+  workflow_dispatch:
 
 jobs:
   build:

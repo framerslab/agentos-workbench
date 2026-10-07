@@ -91,7 +91,7 @@ Write the subject in the imperative mood and keep each commit to one change.
 - A change to `backend/package.json` or `demo-automation/package.json` updates the lockfile beside it in the same pull request. CI fails when the two disagree.
 - Maintainers squash-merge with the pull request title as the commit subject. Give the title the Conventional Commits form.
 
-A weekly workflow, [`bump-framers-deps.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/bump-framers-deps.yml), opens a pull request that moves the `@framers/*` version pins to the latest published versions and refreshes the npm lockfiles.
+A weekly workflow, [`bump-framers-deps.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/bump-framers-deps.yml), opens a pull request that moves the `@framers/*` version pins to the latest published versions and refreshes the npm lockfiles. It then dispatches CI on the pull request branch, because GitHub holds the runs of a pull request that the workflow token opens until a maintainer approves them.
 
 ## Automated review threads
 
