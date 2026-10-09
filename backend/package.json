@@ -22,7 +22,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.6.1",
     "@fastify/swagger-ui": "^5.2.3",
-    "@framers/agentos": "^0.12.8",
+    "@framers/agentos": "^0.13.19",
     "@framers/agentos-extensions": "^1.0.3",
     "@framers/agentos-skills": "^0.10.1",
     "@framers/sql-storage-adapter": "^0.6.9",
