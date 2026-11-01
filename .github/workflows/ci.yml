@@ -87,17 +87,6 @@ jobs:
       - name: Test (backend)
         working-directory: backend
         run: npm test
-      # The lockfile step installs with --ignore-scripts, so the tests above read agentos's
-      # GMI.js as published. This runs the postinstall a real install runs, which fails when its
-      # provider-routing patch no longer applies to the agentos the lockfile names.
-      - name: Backend postinstall applies
-        working-directory: backend
-        run: npm run postinstall
-      # A developer's `npm ci` runs the postinstall before the tests, so the suite runs again on
-      # the patched install.
-      - name: Test (backend, after the postinstall)
-        working-directory: backend
-        run: npm test
       - name: Coverage (Vitest, 60% lines minimum)
         run: |
           if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then

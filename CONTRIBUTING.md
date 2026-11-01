@@ -56,8 +56,6 @@ CI ([`ci.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.gith
 | Lint | `pnpm run -r --if-present lint` | ESLint over `src/`, with no warnings allowed. The root is the only package with a `lint` script. |
 | Test (front end) | `pnpm run --if-present test` | The root's tests pass. |
 | Test (backend) | `npm test` in `backend/` | The backend's tests pass. |
-| Backend postinstall applies | `npm run postinstall` in `backend/` | The provider-routing patch applies to the `@framers/agentos` the backend lockfile names (see below). |
-| Test (backend, after the postinstall) | `npm test` in `backend/` | The backend's tests pass on the patched install, as a developer's `npm ci` leaves it. |
 
 A failure in any step fails the job.
 
@@ -77,9 +75,9 @@ Scripts that CI does not run:
 | `pnpm e2e`, `pnpm e2e:firefox`, `pnpm e2e:webkit` | The Playwright suites in other browsers, and `smoke.spec.ts`. Playwright starts its own dev server. |
 | `npm run build` in `backend/` | The backend's build. |
 
-### The backend's provider-routing postinstall
+### A turn's provider
 
-The backend sends `options.preferredProviderId` with every turn, and `@framers/agentos` picks a turn's provider from the persona's or the config's default only. `backend/scripts/patch-agentos-provider-routing.mjs`, the backend's `postinstall`, edits the installed `GMI.js` so the turn's preferred provider comes first. It fails the install when it cannot find the line it patches. When agentos reads `preferredProviderId` itself, ahead of the persona's and the config's default, the script says so and changes nothing, and it can be removed; the fix is [framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680). When agentos reads `preferredProviderId` after a default provider, the script fails the install, since the turn's provider would still be ignored.
+The backend sends `options.preferredProviderId` with every turn (`buildWorkbenchProcessRequestInput` in `backend/src/routes/agentos.ts`), and `@framers/agentos` 0.15.71 or newer routes the turn's model call to that provider ahead of the persona's and the config's default ([framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680)). `backend/tests/agentosProviderRouting.test.ts` boots the installed agentos with OpenAI and Anthropic configured and a stubbed `fetch`, and checks which provider each playground turn reaches, so an agentos release that stops honouring the turn's provider fails the backend's tests.
 
 ### Browser storage
 
