@@ -1,0 +1,11 @@
+{
+  // The node:test suites under src/ (run by `pnpm test` through tsx) with Node's types, which
+  // the browser config leaves out.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}

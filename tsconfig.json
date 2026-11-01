@@ -18,7 +18,9 @@
     "dist",
     "node_modules",
     "src/lib/localAgentRuntime.ts",
-    "src/lib/localWorkflowLibrary.ts"
+    "src/lib/localWorkflowLibrary.ts",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
