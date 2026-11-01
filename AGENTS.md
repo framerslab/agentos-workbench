@@ -50,13 +50,13 @@ CI runs (job "build" in [`.github/workflows/ci.yml`](https://github.com/framersl
 
 A failure in either test step fails the job.
 
+CI also runs `pnpm typecheck` (the browser config, then the test suites with Node's types), `npm run typecheck` and `npm run postinstall` in `backend/`. On a pull request that is not a draft, and on a run by hand, a second job runs `pnpm build` and `pnpm e2e:workbench:chromium`.
+
 Available scripts that CI does not run:
 
-- `pnpm typecheck`: `tsc --noEmit` for the front end
-- `pnpm build`: the production build into `dist/`
 - `pnpm build:check`: the build, the bundle report and the bundle budget and baseline checks
-- `pnpm e2e`: the Playwright suites (Playwright starts its own dev server)
-- in `backend/`: `npm test`, `npm run typecheck`, `npm run build`
+- `pnpm e2e`, `pnpm e2e:firefox`, `pnpm e2e:webkit`: the Playwright suites in other browsers (Playwright starts its own dev server)
+- in `backend/`: `npm run build`
 
 To run one test file: `node --test --import tsx src/lib/resultGroups.test.ts`. In `backend/`: `node --test --import tsx tests/planningStore.test.ts`.
 

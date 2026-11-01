@@ -43,17 +43,24 @@ The tracked `.env.local` points the front end at the backend on `http://localhos
 
 ### What CI runs
 
-CI ([`ci.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/ci.yml)) runs one job, "build", on every pull request to `master` and every push to `master`. In order:
+CI ([`ci.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/ci.yml)) runs two jobs.
+
+"build" runs on every pull request to `master`, drafts included, and every push to `master`. In order:
 
 | Step | Command | What it checks |
 |---|---|---|
 | Install | `pnpm install --no-frozen-lockfile` | The front end's dependencies install. |
 | Lockfiles | `npm ci --ignore-scripts --no-audit --no-fund` in `backend/` and `demo-automation/` | Each npm lockfile matches its `package.json`. |
+| Typecheck (front end) | `pnpm run typecheck` | `tsc --noEmit` over `src/` with the browser config (`tsconfig.json`), then over the `src/**/*.test.ts` suites with Node's types (`tsconfig.test.json`). |
+| Typecheck (backend) | `npm run typecheck` in `backend/` | `tsc --noEmit` over `backend/src/`. |
 | Lint | `pnpm run -r --if-present lint` | ESLint over `src/`, with no warnings allowed. The root is the only package with a `lint` script. |
 | Test (front end) | `pnpm run --if-present test` | The root's tests pass. |
 | Test (backend) | `npm test` in `backend/` | The backend's tests pass. |
+| Backend postinstall applies | `npm run postinstall` in `backend/` | The provider-routing patch applies to the `@framers/agentos` the backend lockfile names (see below). |
 
-A failure in either test step fails the job.
+A failure in any step fails the job.
+
+"Build and E2E (Chromium)" runs on a pull request that is not a draft (marked ready for review, or pushed to after that) and on a run by hand (`gh workflow run ci.yml --ref <branch>`), never on a draft push. It runs `pnpm build`, installs Chromium and runs `pnpm e2e:workbench:chromium`: the `tests/e2e/workbench-*.spec.ts` suites against a vite dev server in E2E mode (`VITE_E2E_MODE=true`). Every backend route is mocked with `page.route`, so the job reads no secret. When it fails, the Playwright report and `test-results/` are uploaded as the `playwright-report` artifact.
 
 The backend reads the skill and extension catalogs from the parent monorepo's `packages/agentos-skills` and `packages/agentos-extensions` when the checkout sits there, and from the `@framers/agentos-skills` and `@framers/agentos-extensions` npm packages otherwise. The npm catalog carries no pack directories or manifests, so in a standalone checkout a pack counts as installed when its npm package resolves from `backend/`.
 
@@ -65,11 +72,17 @@ Scripts that CI does not run:
 
 | Command | What it does |
 |---|---|
-| `pnpm typecheck` | Type-checks the front end with `tsc --noEmit`. |
-| `pnpm build` | Builds the front end into `dist/`. |
 | `pnpm build:check` | Builds, writes the bundle report and checks it against the bundle budgets and `bundle-baseline.json`. |
-| `pnpm e2e` | Runs the Playwright suites in `tests/e2e/`. Playwright starts its own dev server. |
-| `npm test`, `npm run typecheck`, `npm run build` in `backend/` | The backend's tests, type check and build. |
+| `pnpm e2e`, `pnpm e2e:firefox`, `pnpm e2e:webkit` | The Playwright suites in other browsers, and `smoke.spec.ts`. Playwright starts its own dev server. |
+| `npm run build` in `backend/` | The backend's build. |
+
+### The backend's provider-routing postinstall
+
+The backend sends `options.preferredProviderId` with every turn, and `@framers/agentos` picks a turn's provider from the persona's or the config's default only. `backend/scripts/patch-agentos-provider-routing.mjs`, the backend's `postinstall`, edits the installed `GMI.js` so the turn's preferred provider comes first. It fails the install when it cannot find the line it patches. When agentos reads `preferredProviderId` itself, the script says so and changes nothing, and it can be removed.
+
+### Browser storage
+
+The front end keeps sessions and personas in IndexedDB through `@framers/sql-storage-adapter`'s `IndexedDbAdapter`, which runs sql.js in the page. `src/lib/browserSqlStorage.ts` loads the sql.js wasm from the installed `sql.js` package (`sql.js/dist/sql-wasm-browser.wasm?url`), so the wasm always matches the glue code. `sql.js` is a direct dependency for that import; keep its range the one the adapter resolves.
 
 ### Tests
 
