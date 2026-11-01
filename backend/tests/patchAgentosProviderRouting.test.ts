@@ -86,6 +86,33 @@ test('patchGmiSource reports an agentos that routes preferredProviderId itself',
   assert.equal(result.source, upstream);
 });
 
+// The declaration as framerslab/agentos#680 compiles it: the turn's provider read on its own
+// line, then a typeof check ahead of the persona's and the config's default.
+test('patchGmiSource reports the upstream declaration that reads the turn provider first', () => {
+  const upstream = UNPATCHED_BLOCK.replace(
+    '                const providerIdForModel = this.activePersona.defaultProviderId || this.config.defaultLlmProviderId;',
+    [
+      `                ${PROVIDER_INPUT_LINE}`,
+      "                const providerIdForModel = (typeof preferredProviderIdFromInput === 'string' && preferredProviderIdFromInput) ||",
+      '                    this.activePersona.defaultProviderId ||',
+      '                    this.config.defaultLlmProviderId;',
+    ].join('\n'),
+  );
+  const result = patchGmiSource(upstream);
+
+  assert.equal(result.status, 'upstream');
+  assert.equal(result.source, upstream);
+});
+
+test('patchGmiSource refuses a declaration where a default provider wins over preferredProviderId', () => {
+  const defaultFirst = UNPATCHED_BLOCK.replace(
+    'const providerIdForModel = this.activePersona.defaultProviderId || this.config.defaultLlmProviderId;',
+    'const providerIdForModel = this.activePersona.defaultProviderId || turnInput.metadata?.options?.preferredProviderId || this.config.defaultLlmProviderId;',
+  );
+
+  assert.throws(() => patchGmiSource(defaultFirst), /provider-routing/);
+});
+
 test('patchGmiSource throws when the provider selection it patches is gone', () => {
   assert.throws(() => patchGmiSource('export class GMI {}\n'), /provider-routing/);
 });
