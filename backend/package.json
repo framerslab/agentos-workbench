@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "node scripts/patch-agentos-provider-routing.mjs",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
@@ -22,7 +21,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.6.1",
     "@fastify/swagger-ui": "^5.2.3",
-    "@framers/agentos": "^0.15.58",
+    "@framers/agentos": "^0.15.71",
     "@framers/agentos-extensions": "^1.0.4",
     "@framers/agentos-skills": "^0.10.3",
     "@framers/sql-storage-adapter": "^0.8.3",
