@@ -57,6 +57,7 @@ CI ([`ci.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.gith
 | Test (front end) | `pnpm run --if-present test` | The root's tests pass. |
 | Test (backend) | `npm test` in `backend/` | The backend's tests pass. |
 | Backend postinstall applies | `npm run postinstall` in `backend/` | The provider-routing patch applies to the `@framers/agentos` the backend lockfile names (see below). |
+| Test (backend, after the postinstall) | `npm test` in `backend/` | The backend's tests pass on the patched install, as a developer's `npm ci` leaves it. |
 
 A failure in any step fails the job.
 
@@ -78,7 +79,7 @@ Scripts that CI does not run:
 
 ### The backend's provider-routing postinstall
 
-The backend sends `options.preferredProviderId` with every turn, and `@framers/agentos` picks a turn's provider from the persona's or the config's default only. `backend/scripts/patch-agentos-provider-routing.mjs`, the backend's `postinstall`, edits the installed `GMI.js` so the turn's preferred provider comes first. It fails the install when it cannot find the line it patches. When agentos reads `preferredProviderId` itself, the script says so and changes nothing, and it can be removed.
+The backend sends `options.preferredProviderId` with every turn, and `@framers/agentos` picks a turn's provider from the persona's or the config's default only. `backend/scripts/patch-agentos-provider-routing.mjs`, the backend's `postinstall`, edits the installed `GMI.js` so the turn's preferred provider comes first. It fails the install when it cannot find the line it patches. When agentos reads `preferredProviderId` itself, ahead of the persona's and the config's default, the script says so and changes nothing, and it can be removed; the fix is [framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680). When agentos reads `preferredProviderId` after a default provider, the script fails the install, since the turn's provider would still be ignored.
 
 ### Browser storage
 

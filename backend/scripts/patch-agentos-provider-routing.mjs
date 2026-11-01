@@ -21,8 +21,16 @@ const PATCHED_DECLARATION =
   'const providerIdForModel = preferredProviderIdFromInput || this.activePersona.defaultProviderId || this.config.defaultLlmProviderId;';
 const UNPATCHED_DECLARATION =
   /^([ \t]*)const providerIdForModel = this\.activePersona\.defaultProviderId \|\| this\.config\.defaultLlmProviderId;[ \t]*$/gm;
-// An agentos whose own declaration already reads the turn's preferred provider.
-const UPSTREAM_DECLARATION = /const providerIdForModel\s*=[^;]*preferredProviderId/;
+// Each providerIdForModel declaration's initializer, up to its semicolon.
+const PROVIDER_DECLARATIONS = /const providerIdForModel\s*=([^;]*);/g;
+const DEFAULT_PROVIDER = /defaultProviderId|defaultLlmProviderId/;
+
+/** Whether an initializer takes the turn's preferred provider before any default provider. */
+function readsPreferredProviderFirst(initializer) {
+  const preferred = initializer.indexOf('preferredProviderId');
+  const firstDefault = initializer.search(DEFAULT_PROVIDER);
+  return preferred >= 0 && (firstDefault < 0 || preferred < firstDefault);
+}
 
 /**
  * Returns GMI.js with the turn's preferred provider routed, or says why it is
@@ -35,8 +43,17 @@ export function patchGmiSource(source) {
   if (source.includes(PROVIDER_INPUT_LINE) && source.includes(PATCHED_DECLARATION)) {
     return { status: 'already-applied', source };
   }
-  if (UPSTREAM_DECLARATION.test(source)) {
-    return { status: 'upstream', source };
+  const initializers = [...source.matchAll(PROVIDER_DECLARATIONS)].map((match) => match[1]);
+  if (initializers.some((initializer) => initializer.includes('preferredProviderId'))) {
+    // An agentos whose own declaration reads the turn's preferred provider counts as upstream
+    // routing only when that provider comes before the persona's and the config's default.
+    if (initializers.every(readsPreferredProviderFirst)) {
+      return { status: 'upstream', source };
+    }
+    throw new Error(
+      'AgentOS provider-routing patch: GMI.js reads preferredProviderId in providerIdForModel, but a default provider comes first, so the turn\'s provider is ignored. ' +
+        'Update backend/scripts/patch-agentos-provider-routing.mjs for this agentos version.',
+    );
   }
   if (source.includes(PROVIDER_INPUT_LINE)) {
     throw new Error(
