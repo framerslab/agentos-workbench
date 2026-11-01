@@ -117,12 +117,14 @@ test('patchGmiSource throws when the provider selection it patches is gone', () 
   assert.throws(() => patchGmiSource('export class GMI {}\n'), /provider-routing/);
 });
 
-test('patchGmiSource patches the GMI.js this lockfile installs', () => {
+// After `npm ci` the postinstall has already patched the installed file; CI's lockfile step
+// installs with --ignore-scripts, so the suite sees it both ways.
+test('patchGmiSource patches the GMI.js this lockfile installs, before or after the postinstall', () => {
   const source = readFileSync(installedGmiPath, 'utf8');
   const result = patchGmiSource(source);
 
-  assert.ok(['patched', 'upstream'].includes(result.status), `unexpected status ${result.status}`);
-  if (result.status === 'patched') {
+  assert.ok(['patched', 'already-applied', 'upstream'].includes(result.status), `unexpected status ${result.status}`);
+  if (result.status !== 'upstream') {
     assert.deepEqual(providerDeclarations(result.source), [PATCHED_DECLARATION]);
     assert.ok(result.source.includes(PROVIDER_INPUT_LINE));
   }

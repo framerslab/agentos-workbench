@@ -50,7 +50,7 @@ CI runs (job "build" in [`.github/workflows/ci.yml`](https://github.com/framersl
 
 A failure in either test step fails the job.
 
-CI also runs `pnpm typecheck` (the browser config, then the test suites with Node's types), `npm run typecheck` and `npm run postinstall` in `backend/`. On a pull request that is not a draft, and on a run by hand, a second job runs `pnpm build` and `pnpm e2e:workbench:chromium`.
+CI also runs `pnpm typecheck` (the browser config, then the test suites with Node's types), `npm run typecheck`, `npm run postinstall` and then `npm test` again in `backend/`. On a pull request that is not a draft, and on a run by hand, a second job runs `pnpm build` and `pnpm e2e:workbench:chromium`.
 
 Available scripts that CI does not run:
 
