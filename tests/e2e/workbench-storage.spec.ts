@@ -16,7 +16,9 @@ test.describe('AgentOS Workbench - Browser storage', () => {
     });
     const wasmResponses: Array<{ url: string; status: number; type: string | undefined }> = [];
     page.on('response', (response) => {
-      if (response.url().endsWith('.wasm') || response.url().includes('.wasm?')) {
+      // The wasm binary itself, not vite's `?import&url` module that exports its URL.
+      const url = new URL(response.url());
+      if (url.pathname.endsWith('.wasm') && !url.searchParams.has('import')) {
         wasmResponses.push({ url: response.url(), status: response.status(), type: response.headers()['content-type'] });
       }
     });
