@@ -15,7 +15,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: "latest",
     sourceType: "module",
-    project: ["./tsconfig.json"],
+    // tsconfig.test.json holds the node:test suites the browser config excludes.
+    project: ["./tsconfig.json", "./tsconfig.test.json"],
     tsconfigRootDir: __dirname
   },
   settings: {

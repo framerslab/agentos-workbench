@@ -1,11 +1,11 @@
 import type { AgentSession, PersonaDefinition, SessionEvent } from "@/state/sessionStore";
 import { AgentOSChunkType } from "@/types/agentos";
 import { createAgentOSStorageAdapter } from "./agentosStorage";
+import { loadRecentSessionEventRows, MAX_EVENTS_PER_SESSION } from "./sessionEventRows";
 import type { StorageAdapter } from "@framers/sql-storage-adapter/types";
 
 const DEFAULT_USER_ID = "agentos-workbench-user";
 const DEFAULT_DB_NAME = "agentos-workbench-db";
-const MAX_EVENTS_PER_SESSION = 200;
 
 type SqlRow = Record<string, unknown>;
 
@@ -52,12 +52,7 @@ export async function bootstrapStorage(): Promise<BootstrapPayload> {
     [DEFAULT_USER_ID]
   )) as SqlRow[];
 
-  const eventsRows = (await adapter.all(
-    `SELECT conversation_id, id as event_id, event_type, event_data, timestamp
-     FROM conversation_events
-     ORDER BY timestamp DESC
-     LIMIT 4000`
-  )) as SqlRow[];
+  const eventsRows = await loadRecentSessionEventRows(adapter);
 
   const groupedEvents = new Map<string, SessionEvent[]>();
   for (const row of eventsRows) {

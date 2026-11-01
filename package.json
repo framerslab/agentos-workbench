@@ -15,7 +15,7 @@
     "bundle:check": "node scripts/checkBundleBudget.mjs",
     "bundle:compare": "node scripts/checkBundleRegression.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "node --test --import tsx \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "e2e": "pnpm exec playwright test",
@@ -61,6 +61,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.26.0",
     "socket.io-client": "^4.8.1",
+    "sql.js": "^1.15.2",
     "zod": "^3.23.8",
     "zustand": "^5.0.0"
   },
@@ -68,6 +69,7 @@
     "@playwright/test": "^1.56.1",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/typography": "^0.5.12",
+    "@types/node": "^22.20.5",
     "@types/react": "^18.3.6",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.15.0",
@@ -89,6 +91,11 @@
     "node": ">=22"
   },
   "packageManager": "pnpm@10.15.1",
+  "pnpm": {
+    "overrides": {
+      "sql.js": "$sql.js"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/framerslab/agentos-workbench"

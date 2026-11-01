@@ -5,6 +5,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+    # ready_for_review starts the browser job below when a draft is marked ready.
+    types: [opened, synchronize, reopened, ready_for_review]
   # A run by hand on any branch: gh workflow run ci.yml --ref <branch>
   workflow_dispatch:
 
@@ -61,6 +63,11 @@ jobs:
             (cd "$dir" && npm ci --ignore-scripts --no-audit --no-fund)
             echo "::endgroup::"
           done
+      - name: Typecheck (front end)
+        run: pnpm run typecheck
+      - name: Typecheck (backend)
+        working-directory: backend
+        run: npm run typecheck
       - name: Lint
         run: |
           if [ "${{ steps.pm.outputs.pm }}" = "pnpm" ]; then
@@ -80,6 +87,17 @@ jobs:
       - name: Test (backend)
         working-directory: backend
         run: npm test
+      # The lockfile step installs with --ignore-scripts, so the tests above read agentos's
+      # GMI.js as published. This runs the postinstall a real install runs, which fails when its
+      # provider-routing patch no longer applies to the agentos the lockfile names.
+      - name: Backend postinstall applies
+        working-directory: backend
+        run: npm run postinstall
+      # A developer's `npm ci` runs the postinstall before the tests, so the suite runs again on
+      # the patched install.
+      - name: Test (backend, after the postinstall)
+        working-directory: backend
+        run: npm test
       - name: Coverage (Vitest, 60% lines minimum)
         run: |
           if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then
@@ -92,3 +110,41 @@ jobs:
             echo "No vitest config found; skipping coverage check."
           fi
 
+  # The front end as a browser runs it: the production vite build, then the Playwright
+  # workbench suite against a vite dev server in E2E mode (VITE_E2E_MODE=true, every backend
+  # route mocked with page.route, so no secret is read). It runs by hand and on a pull request
+  # that is not a draft (marked ready, or pushed to after that), never on a draft push.
+  e2e:
+    name: Build and E2E (Chromium)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+      - name: Build (vite)
+        run: pnpm run build
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: E2E (workbench suite, Chromium)
+        env:
+          CI: 'true'
+        run: pnpm e2e:workbench:chromium
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
