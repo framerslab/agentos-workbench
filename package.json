@@ -91,6 +91,11 @@
     "node": ">=22"
   },
   "packageManager": "pnpm@10.15.1",
+  "pnpm": {
+    "overrides": {
+      "sql.js": "$sql.js"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/framerslab/agentos-workbench"

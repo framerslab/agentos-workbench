@@ -83,7 +83,7 @@ The backend sends `options.preferredProviderId` with every turn, and `@framers/a
 
 ### Browser storage
 
-The front end keeps sessions and personas in IndexedDB through `@framers/sql-storage-adapter`'s `IndexedDbAdapter`, which runs sql.js in the page. `src/lib/browserSqlStorage.ts` loads the sql.js wasm from the installed `sql.js` package (`sql.js/dist/sql-wasm-browser.wasm?url`), so the wasm always matches the glue code. `sql.js` is a direct dependency for that import; keep its range the one the adapter resolves.
+The front end keeps sessions and personas in IndexedDB through `@framers/sql-storage-adapter`'s `IndexedDbAdapter`, which runs sql.js in the page. `src/lib/browserSqlStorage.ts` loads the sql.js wasm from the installed `sql.js` package (`sql.js/dist/sql-wasm-browser.wasm?url`), so the wasm always matches the glue code. `sql.js` is a direct dependency for that import, and a pnpm override (`"sql.js": "$sql.js"`) makes the adapter resolve that same version, so a local lockfile that kept an older sql.js for the adapter cannot pair one release's glue with another's wasm. The browser typecheck (`tsconfig.json`) lists its ambient types, so `@types/node`, there for the test suites, stays out of it.
 
 ### Tests
 
