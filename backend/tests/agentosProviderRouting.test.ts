@@ -3,9 +3,10 @@ import { afterEach, beforeEach, test } from 'node:test';
 
 import { buildWorkbenchProcessRequestInput } from '../src/routes/agentos';
 
-// A playground turn's provider as the installed @framers/agentos routes it. The backend sends
-// `options.preferredProviderId` with every turn (buildWorkbenchProcessRequestInput); agentos
-// 0.15.71 (framerslab/agentos#680) puts it ahead of the persona's and the config's default
+// A playground turn's provider as the installed @framers/agentos routes it. A turn that names a
+// model carries `options.preferredProviderId` (buildWorkbenchProcessRequestInput: the turn's
+// providerId, else the provider the model's prefix names); a turn without one sends no options
+// and keeps the persona's provider. agentos 0.15.71 (framerslab/agentos#680) puts it ahead of the persona's and the config's default
 // provider. Each case boots the real runtime with OpenAI and Anthropic configured and answers
 // their HTTP calls from a stubbed fetch, so the GMI, the provider manager and both providers run
 // as published and only the network is replaced.

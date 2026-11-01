@@ -77,7 +77,7 @@ Scripts that CI does not run:
 
 ### A turn's provider
 
-The backend sends `options.preferredProviderId` with every turn (`buildWorkbenchProcessRequestInput` in `backend/src/routes/agentos.ts`), and `@framers/agentos` 0.15.71 or newer routes the turn's model call to that provider ahead of the persona's and the config's default ([framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680)). `backend/tests/agentosProviderRouting.test.ts` boots the installed agentos with OpenAI and Anthropic configured and a stubbed `fetch`, and checks which provider each playground turn reaches, so an agentos release that stops honouring the turn's provider fails the backend's tests.
+A turn that names a `model` carries `options.preferredModelId` and `options.preferredProviderId` (`buildWorkbenchProcessRequestInput` in `backend/src/routes/agentos.ts`). The provider is the turn's `providerId` when one is given, otherwise the one the model's prefix names (`inferProviderId`: `claude-`, `gpt-`, `o1`/`o3`/`o4`, `gemini-`, `llama`, `mixtral`); a prefix it does not know leaves the provider unset. A turn without a `model` sends no `options` and runs on the persona's provider and model. `@framers/agentos` 0.15.71 or newer routes the turn's model call to the preferred provider ahead of the persona's and the config's default ([framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680)). `backend/tests/agentosProviderRouting.test.ts` builds each turn with `buildWorkbenchProcessRequestInput`, runs it through the installed agentos with OpenAI and Anthropic configured and a stubbed `fetch`, and checks which provider it reaches, so an agentos release that stops honouring the turn's provider fails the backend's tests.
 
 ### Browser storage
 
