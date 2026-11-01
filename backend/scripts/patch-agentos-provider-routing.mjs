@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,8 +114,20 @@ async function main() {
   console.log(`Applied AgentOS provider-routing patch to ${targetPath}.`);
 }
 
-const invokedDirectly =
-  typeof process.argv[1] === 'string' && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+// Node loads a main module from its real path, so both sides are resolved: through a symlinked
+// directory an unresolved argv[1] would not match and the patch would be skipped with exit 0.
+function isInvokedDirectly() {
+  if (typeof process.argv[1] !== 'string') {
+    return false;
+  }
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+const invokedDirectly = isInvokedDirectly();
 
 if (invokedDirectly) {
   main().catch((error) => {
