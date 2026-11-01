@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -153,4 +153,22 @@ test('the postinstall script patches an install, is idempotent, and exits non-ze
   const missing = runScript(empty);
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /GMI\.js/);
+});
+
+// Node runs a main module from its real path, so import.meta.url and process.argv[1] differ when
+// a directory above the script is a symlink (a linked home directory, macOS's /tmp).
+test('the postinstall script patches when it is run through a symlinked directory', () => {
+  const { dir, gmiPath } = fakeInstall(UNPATCHED_BLOCK);
+  const linkParent = mkdtempSync(path.join(os.tmpdir(), 'patch-script-link-'));
+  const linkedScripts = path.join(linkParent, 'scripts');
+  symlinkSync(path.dirname(scriptPath), linkedScripts, 'dir');
+
+  const result = spawnSync(process.execPath, [path.join(linkedScripts, path.basename(scriptPath))], {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Applied AgentOS provider-routing patch/);
+  assert.deepEqual(providerDeclarations(readFileSync(gmiPath, 'utf8')), [PATCHED_DECLARATION]);
 });
