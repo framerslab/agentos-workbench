@@ -10,10 +10,23 @@ import {
   readBundleReport,
 } from './bundleMetrics.mjs';
 
+// The two total budgets count every file vite emits into dist/assets. That includes the sql.js
+// wasm (688,197 bytes raw, 337,776 gzip in sql.js 1.16.0): src/lib/browserSqlStorage.ts imports
+// it from the installed sql.js release, so the wasm matches the glue code that loads it, and
+// vite emits it beside the chunks. Each total is the room JavaScript and CSS have (2,000,000
+// raw, 560,000 gzip) plus that one file. These two constants follow the wasm's size and change
+// only when a sql.js release changes it.
+const SQL_WASM_BYTES = 690_000;
+const SQL_WASM_GZIP_BYTES = 338_000;
+
 export function buildBudgetThresholds(env = process.env) {
   return {
-    totalBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_TOTAL_BYTES', 2_000_000, env),
-    totalGzipBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_TOTAL_GZIP_BYTES', 560_000, env),
+    totalBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_TOTAL_BYTES', 2_000_000 + SQL_WASM_BYTES, env),
+    totalGzipBytes: parsePositiveIntegerEnv(
+      'WORKBENCH_BUNDLE_MAX_TOTAL_GZIP_BYTES',
+      560_000 + SQL_WASM_GZIP_BYTES,
+      env,
+    ),
     largestJsBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_LARGEST_JS_BYTES', 425_000, env),
     entryJsBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_ENTRY_JS_BYTES', 170_000, env),
     cssBytes: parsePositiveIntegerEnv('WORKBENCH_BUNDLE_MAX_CSS_BYTES', 125_000, env),
