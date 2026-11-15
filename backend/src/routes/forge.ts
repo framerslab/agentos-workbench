@@ -100,10 +100,21 @@ function inferForgedToolName(description: string): string {
 }
 
 /**
+ * Encode text as a JavaScript string literal for generated code.
+ *
+ * `JSON.stringify` escapes quotes, backslashes and line breaks, so the text
+ * stays one string value in the code and never ends a comment or a string.
+ */
+function codeLiteral(text: string): string {
+  return JSON.stringify(text);
+}
+
+/**
  * Stub implementation generator.
  *
  * In production this would call the LLM to synthesise a real implementation.
  * The stub always returns a descriptive echo that lets the UI exercise all flows.
+ * Request text enters the code only through `codeLiteral`, as string data.
  *
  * @param description - Natural-language description of the desired tool.
  * @param parametersSchema - Optional JSON Schema string for tool parameters.
@@ -113,7 +124,8 @@ function generateImplementation(description: string, parametersSchema: string): 
   if (isCoinGeckoPriceTool(description)) {
     const defaultCoinId = inferDefaultCoinId(description);
     return `
-// Generated demo CoinGecko price tool for: ${description}
+// Generated demo CoinGecko price tool.
+const toolDescription = ${codeLiteral(description)};
 async function run(params) {
   const symbolToId = {
     btc: 'bitcoin',
@@ -130,10 +142,10 @@ async function run(params) {
       ? params.symbol
       : typeof params?.asset === 'string'
         ? params.asset
-        : '${defaultCoinId}';
+        : ${codeLiteral(defaultCoinId)};
 
   const normalized = String(requested).trim().toLowerCase();
-  const coinId = symbolToId[normalized] || normalized || '${defaultCoinId}';
+  const coinId = symbolToId[normalized] || normalized || ${codeLiteral(defaultCoinId)};
   const vsCurrency = typeof params?.vs_currency === 'string' && params.vs_currency.trim()
     ? params.vs_currency.trim().toLowerCase()
     : 'usd';
@@ -159,8 +171,9 @@ async function run(params) {
   }
 
   return `
-// Generated stub for: ${description}
-// Parameters schema: ${parametersSchema || '(none)'}
+// Generated stub.
+const toolDescription = ${codeLiteral(description)};
+const toolParametersSchema = ${codeLiteral(parametersSchema || '(none)')};
 async function run(params) {
   return { ok: true, result: \`Tool executed with params: \${JSON.stringify(params)}\` };
 }
