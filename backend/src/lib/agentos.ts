@@ -75,7 +75,9 @@ let agentosInstance: AgentOSInstance | null = null;
 let initializationPromise: Promise<void> | null = null;
 const runtimeImport = new Function('specifier', 'return import(specifier)') as (
   specifier: string
-) => Promise<{ AgentOS: new () => AgentOSInstance }>;
+) => Promise<{
+  AgentOS: new () => AgentOSInstance;
+} & Pick<typeof import('@framers/agentos'), 'createCurrentDateTimeTool' | 'DEFAULT_PROMPT_PROFILE_CONFIG'>>;
 
 function hasUsableApiKey(value: string | undefined): boolean {
   const apiKey = value?.trim();
@@ -169,6 +171,28 @@ function buildWorkbenchRagConfig() {
   };
 }
 
+/** Keep retrieved memory as application data before the latest user's unchanged words. */
+function withRetrievedContext(
+  messages: Array<{ role: string; content: any }>,
+  context: string | Array<{ source: string; content: string }> | undefined,
+) {
+  const text = typeof context === 'string'
+    ? context
+    : context?.map((item) => `Source: ${item.source}\nContent: ${item.content}`).join('\n\n');
+  if (!text) return messages;
+
+  const note = `[Note from the application, not from the person. It is for this reply only: never quote it or mention it.]\n${text}`;
+  const newest = messages[messages.length - 1];
+  if (newest?.role === 'user') {
+    newest.content = Array.isArray(newest.content)
+      ? [{ type: 'text', text: note }, ...newest.content]
+      : `${note}\n\n${newest.content ?? ''}`;
+  } else {
+    messages.push({ role: 'user', content: note });
+  }
+  return messages;
+}
+
 async function createAgentOS(): Promise<AgentOSInstance> {
   const module = await runtimeImport('@framers/agentos');
   return new module.AgentOS() as AgentOSInstance;
@@ -196,6 +220,7 @@ export async function initializeAgentOS() {
     console.log(`Loading personas from: ${personasPath}`);
 
     const agentos = await getAgentOS();
+    const { createCurrentDateTimeTool, DEFAULT_PROMPT_PROFILE_CONFIG } = await runtimeImport('@framers/agentos');
     const ragConfig = buildWorkbenchRagConfig();
     const defaultLlm = resolveWorkbenchDefaultLlm();
     if (ragConfig) {
@@ -221,7 +246,9 @@ export async function initializeAgentOS() {
         },
         cognitiveMemoryFactory: createWorkbenchCognitiveMemoryFactory(),
       },
-      orchestratorConfig: {} as any,
+      orchestratorConfig: {
+        promptProfileConfig: DEFAULT_PROMPT_PROFILE_CONFIG,
+      },
       promptEngineConfig: {
         defaultTemplateName: 'default',
         availableTemplates: {
@@ -245,7 +272,7 @@ export async function initializeAgentOS() {
             if (components.userInput) {
               messages.push({ role: 'user' as const, content: components.userInput });
             }
-            return messages;
+            return withRetrievedContext(messages, components.retrievedContext);
           },
           // Override the built-in anthropic_messages template to return a flat
           // ChatMessage[] array that AnthropicProvider.buildRequestPayload expects,
@@ -270,7 +297,7 @@ export async function initializeAgentOS() {
             if (components.userInput) {
               messages.push({ role: 'user', content: components.userInput });
             }
-            return messages;
+            return withRetrievedContext(messages, components.retrievedContext);
           },
         },
         tokenCounting: {
@@ -298,7 +325,10 @@ export async function initializeAgentOS() {
           conflictResolutionStrategy: 'skip_conflicting',
         },
       },
-      tools: workbenchTools,
+      tools: {
+        ...workbenchTools,
+        getCurrentDateTime: createCurrentDateTimeTool(),
+      },
       toolOrchestratorConfig: {} as any,
       toolPermissionManagerConfig: {} as any,
       conversationManagerConfig: {} as any,

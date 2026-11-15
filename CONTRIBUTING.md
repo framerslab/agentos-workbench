@@ -79,6 +79,10 @@ Scripts that CI does not run:
 
 A turn that names a `model` carries `options.preferredModelId` and `options.preferredProviderId` (`buildWorkbenchProcessRequestInput` in `backend/src/routes/agentos.ts`). The provider is the turn's `providerId` when one is given, otherwise the one the model's prefix names (`inferProviderId`: `claude-`, `gpt-`, `o1`/`o3`/`o4`, `gemini-`, `llama`, `mixtral`); a prefix it does not know leaves the provider unset. A turn without a `model` sends no `options` and runs on the persona's provider and model. `@framers/agentos` 0.15.71 or newer routes the turn's model call to the preferred provider ahead of the persona's and the config's default ([framerslab/agentos#680](https://github.com/framerslab/agentos/pull/680)). `backend/tests/agentosProviderRouting.test.ts` builds each turn with `buildWorkbenchProcessRequestInput`, runs it through the installed agentos with OpenAI and Anthropic configured and a stubbed `fetch`, and checks which provider it reaches, so an agentos release that stops honouring the turn's provider fails the backend's tests.
 
+### Runtime defaults and memory context
+
+The backend and embedded browser host explicitly register `createCurrentDateTimeTool()` and pass `DEFAULT_PROMPT_PROFILE_CONFIG` to keep the date tool and concise prompt preset after the AgentOS 0.19 update. The browser keeps its explicit persistence settings; the backend uses direct `initialize()`, whose persistence default is unchanged. The backend's custom prompt templates carry retrieved memory as an application note before the person's unchanged words. The provider-routing suite also boots the real backend and checks tool execution and captured model requests with only provider HTTP calls stubbed.
+
 ### Browser storage
 
 The front end keeps sessions and personas in IndexedDB through `@framers/sql-storage-adapter`'s `IndexedDbAdapter`, which runs sql.js in the page. `src/lib/browserSqlStorage.ts` loads the sql.js wasm from the installed `sql.js` package (`sql.js/dist/sql-wasm-browser.wasm?url`), so the wasm always matches the glue code. `sql.js` is a direct dependency for that import, and a pnpm override (`"sql.js": "$sql.js"`) makes the adapter resolve that same version, so a local lockfile that kept an older sql.js for the adapter cannot pair one release's glue with another's wasm. The browser typecheck (`tsconfig.json`) lists its ambient types, so `@types/node`, there for the test suites, stays out of it.
@@ -104,6 +108,8 @@ Write the subject in the imperative mood and keep each commit to one change.
 - Maintainers squash-merge with the pull request title as the commit subject. Give the title the Conventional Commits form.
 
 A weekly workflow, [`bump-framers-deps.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/bump-framers-deps.yml), opens a pull request that moves the `@framers/*` version pins to the latest published versions and refreshes the npm lockfiles. It pushes the branch and opens the pull request with `FRAMERS_BUMP_TOKEN`, a personal token held as an organization secret, so CI and the link check run on the pull request as on any other. GitHub holds the runs of a pull request that the workflow's own token opens until a maintainer approves them.
+
+For a scoped backend dependency change, dispatch the same workflow on the change's branch with `backend_lockfile_only=true`. That mode resolves `backend/package-lock.json` with scripts disabled and uploads a `backend-lockfile` artifact; it does not run the weekly bump or open a pull request. Download that artifact and commit the generated lockfile with the manifest update.
 
 ## Automated review threads
 
