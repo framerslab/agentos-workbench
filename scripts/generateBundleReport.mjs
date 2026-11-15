@@ -119,6 +119,7 @@ export function buildBundleMarkdown(report) {
     `- Lazy JS: ${totals.lazy.count} files, ${formatBytes(totals.lazy.bytes)} raw, ${formatBytes(totals.lazy.gzipBytes)} gzip`,
     `- Vendor JS: ${totals.vendor.count} files, ${formatBytes(totals.vendor.bytes)} raw, ${formatBytes(totals.vendor.gzipBytes)} gzip`,
     `- CSS: ${totals.css.count} files, ${formatBytes(totals.css.bytes)} raw, ${formatBytes(totals.css.gzipBytes)} gzip`,
+    `- Other assets: ${totals.other.count} files, ${formatBytes(totals.other.bytes)} raw, ${formatBytes(totals.other.gzipBytes)} gzip`,
     '',
     '## Largest JavaScript Assets',
     '',

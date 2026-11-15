@@ -23,7 +23,8 @@ test('buildBudgetThresholds supports explicit env overrides', () => {
   });
 
   assert.equal(budgets.totalBytes, 2_100_000);
-  assert.equal(budgets.totalGzipBytes, 560_000);
+  // The default: 560,000 for JavaScript and CSS plus 338,000 for the sql.js wasm.
+  assert.equal(budgets.totalGzipBytes, 898_000);
   assert.equal(budgets.cssBytes, 130_000);
 });
 

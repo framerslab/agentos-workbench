@@ -1,32 +1,32 @@
 {
-  "generatedAt": "2026-05-18T01:50:00.000Z",
-  "sourceReportGeneratedAt": "2026-05-18T01:50:00.000Z",
+  "generatedAt": "2026-11-12T01:46:01.000Z",
+  "sourceReportGeneratedAt": "2026-11-11T19:53:11.929Z",
   "project": "@framers/agentos-workbench",
   "metrics": {
-    "totalBytes": 2016281,
-    "totalGzipBytes": 572349,
-    "largestJsBytes": 395118,
-    "entryJsBytes": 155694,
+    "totalBytes": 2291123,
+    "totalGzipBytes": 777608,
+    "largestJsBytes": 169598,
+    "entryJsBytes": 151164,
     "cssBytes": 115463
   },
   "assets": {
     "largestJs": {
-      "fileName": "vendor-polyfills-BX9Fg2Zg.js",
-      "label": "vendor-polyfills.js",
-      "bytes": 395118,
-      "gzipBytes": 126665
+      "fileName": "vendor-BpNFEuX3.js",
+      "label": "vendor.js",
+      "bytes": 169598,
+      "gzipBytes": 55970
     },
     "entryJs": {
-      "fileName": "index-4l8uBl31.js",
+      "fileName": "index-D4o_9BI9.js",
       "label": "index.js",
-      "bytes": 155694,
-      "gzipBytes": 42220
+      "bytes": 151164,
+      "gzipBytes": 40914
     },
     "css": {
       "fileName": "index-bZyDkd3t.css",
       "label": "index.css",
       "bytes": 115463,
-      "gzipBytes": 18558
+      "gzipBytes": 18573
     }
   }
 }

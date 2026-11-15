@@ -52,6 +52,23 @@ test('buildBundleMarkdown renders summary sections and tables', () => {
   assert.match(markdown, /\| `vendor-polyfills-CoFUuYbz\.js` \| vendor \| 395\.47 kB \| 121\.00 kB \|/);
 });
 
+test('buildBundleMarkdown totals account for assets that are neither JavaScript nor CSS', () => {
+  // The sql.js wasm is emitted into dist/assets beside the chunks, so it counts toward the
+  // total budgets; the totals breakdown has to show where those bytes are.
+  const report = buildBundleReport(
+    [
+      ...Object.values(createCoreBundleAssets()),
+      createAsset('sql-wasm-browser-CXIAVl5-.wasm', 688_197, 337_776, 'other', '.wasm'),
+    ],
+    '2026-03-26T12:00:00.000Z',
+  );
+
+  const markdown = buildBundleMarkdown(report);
+
+  assert.match(markdown, /- Raw size: 1\.35 MB/);
+  assert.match(markdown, /- Other assets: 1 files, 688\.20 kB raw, 337\.78 kB gzip/);
+});
+
 test('toMarkdownTable returns an empty marker for empty asset lists', () => {
   assert.equal(toMarkdownTable([]), '_None_');
 });
