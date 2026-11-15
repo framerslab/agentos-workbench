@@ -272,8 +272,8 @@ test('the workbench host keeps its date tool, prompt profile and recalled contex
   const { getAgentOS, initializeAgentOS } = await import('../src/lib/agentos');
   try {
     await initializeAgentOS();
-    agentos = await getAgentOS() as AgentOSInstance;
-    const runtime = agentos;
+    const runtime = await getAgentOS() as AgentOSInstance;
+    t.after(() => runtime.shutdown());
 
     await t.test('the registered date tool executes through the real orchestrator', async () => {
       const result = await runtime.getToolOrchestrator().processToolCall({
