@@ -43,6 +43,7 @@ interface ModelCall {
   provider: 'openai' | 'anthropic';
   model: string;
   streamed: boolean;
+  body: Record<string, unknown>;
 }
 
 const REPLY_TEXT = { openai: 'From OpenAI.', anthropic: 'From Anthropic.' } as const;
@@ -143,7 +144,7 @@ beforeEach(() => {
     const streamed = body.stream === true;
     if (url?.hostname === 'api.openai.com') {
       if (url.pathname.endsWith('/chat/completions') || url.pathname.endsWith('/responses')) {
-        calls.push({ provider: 'openai', model, streamed });
+        calls.push({ provider: 'openai', model, streamed, body });
         return openAiReply(model, streamed);
       }
       if (url.pathname.endsWith('/models')) {
@@ -152,7 +153,7 @@ beforeEach(() => {
     }
     if (url?.hostname === 'api.anthropic.com') {
       if (url.pathname.endsWith('/v1/messages')) {
-        calls.push({ provider: 'anthropic', model, streamed });
+        calls.push({ provider: 'anthropic', model, streamed, body });
         return anthropicReply(model, streamed);
       }
       if (url.pathname.includes('/v1/models')) {
@@ -259,4 +260,68 @@ test("a later turn of the same session with no model picked goes back to the per
   assert.equal(named.text, REPLY_TEXT.anthropic);
   assert.equal(unnamed.text, REPLY_TEXT.openai);
   assert.deepEqual(served(), ['anthropic:claude-sonnet-4-0', 'openai:gpt-4o-mini']);
+});
+
+
+test('the workbench host keeps its date tool, prompt profile and recalled context', async (t) => {
+  const envNames = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'AGENTOS_WORKBENCH_ENABLE_RUNTIME_RAG'] as const;
+  const previous = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
+  process.env.OPENAI_API_KEY = 'sk-workbench-test';
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-workbench-test';
+  process.env.AGENTOS_WORKBENCH_ENABLE_RUNTIME_RAG = 'false';
+  const { getAgentOS, initializeAgentOS } = await import('../src/lib/agentos');
+  try {
+    await initializeAgentOS();
+    agentos = await getAgentOS() as AgentOSInstance;
+    const runtime = agentos;
+
+    await t.test('the registered date tool executes through the real orchestrator', async () => {
+      const result = await runtime.getToolOrchestrator().processToolCall({
+        toolCallRequest: { id: 'date-test', name: 'getCurrentDateTime', arguments: {} },
+        gmiId: 'workbench',
+        personaId: 'default',
+        personaCapabilities: {},
+        userContext: { userId: 'workbench-user' },
+      } as never);
+      assert.equal(result.isError, false);
+      assert.ok(result.output);
+    });
+
+    for (const [provider, model] of [['openai', 'gpt-4o-mini'], ['anthropic', 'claude-sonnet-4-0']] as const) {
+      await t.test(`${provider} receives the concise profile and memory before the person's words`, async () => {
+        const sessionId = `s-host-${provider}`;
+        const { gmi } = await runtime.getGMIManager().getOrCreateGMIForSession(
+          'workbench-user', sessionId, 'default',
+        );
+        const memory = gmi.getCognitiveMemoryManager();
+        assert.ok(memory);
+        const remembered = 'The project codename is Copperfin.';
+        await memory.encode(remembered, { valence: 0, arousal: 0, dominance: 0 }, 'neutral', {
+          type: 'episodic', sourceType: 'user_statement', scopeId: 'workbench-user', tags: ['project'],
+        });
+        calls = [];
+        const words = 'What is my project codename?';
+        const result = await turn(runtime, { sessionId, selectedPersonaId: 'default', model, textInput: words });
+        assert.deepEqual(result.errors, []);
+        assert.equal(result.text, REPLY_TEXT[provider]);
+        const request = calls.find((call) => call.provider === provider && call.streamed)?.body;
+        assert.ok(request, 'the real provider received the turn');
+        assert.match(JSON.stringify(request), /Meta-Preset: Concise/);
+        const messages = request.messages as Array<{ role: string; content: unknown }>;
+        const newest = messages.filter((message) => message.role === 'user').at(-1);
+        assert.ok(newest);
+        const content = typeof newest.content === 'string' ? newest.content :
+          (newest.content as Array<{ text?: string }>).map((part) => part.text ?? '').join('');
+        assert.ok(content.includes(remembered), 'recalled memory reaches the provider');
+        assert.ok(content.indexOf(remembered) < content.indexOf(words), 'memory precedes the unchanged user words');
+        assert.ok(content.endsWith(words));
+        assert.ok(!content.includes('User Query:'));
+      });
+    }
+  } finally {
+    for (const name of envNames) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }
 });
