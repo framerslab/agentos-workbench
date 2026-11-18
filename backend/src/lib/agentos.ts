@@ -75,7 +75,9 @@ let agentosInstance: AgentOSInstance | null = null;
 let initializationPromise: Promise<void> | null = null;
 const runtimeImport = new Function('specifier', 'return import(specifier)') as (
   specifier: string
-) => Promise<{ AgentOS: new () => AgentOSInstance }>;
+) => Promise<{
+  AgentOS: new () => AgentOSInstance;
+} & Pick<typeof import('@framers/agentos'), 'createCurrentDateTimeTool' | 'DEFAULT_PROMPT_PROFILE_CONFIG'>>;
 
 function hasUsableApiKey(value: string | undefined): boolean {
   const apiKey = value?.trim();
@@ -196,6 +198,7 @@ export async function initializeAgentOS() {
     console.log(`Loading personas from: ${personasPath}`);
 
     const agentos = await getAgentOS();
+    const { createCurrentDateTimeTool, DEFAULT_PROMPT_PROFILE_CONFIG } = await runtimeImport('@framers/agentos');
     const ragConfig = buildWorkbenchRagConfig();
     const defaultLlm = resolveWorkbenchDefaultLlm();
     if (ragConfig) {
@@ -221,7 +224,9 @@ export async function initializeAgentOS() {
         },
         cognitiveMemoryFactory: createWorkbenchCognitiveMemoryFactory(),
       },
-      orchestratorConfig: {} as any,
+      orchestratorConfig: {
+        promptProfileConfig: DEFAULT_PROMPT_PROFILE_CONFIG,
+      },
       promptEngineConfig: {
         defaultTemplateName: 'default',
         availableTemplates: {
@@ -298,7 +303,10 @@ export async function initializeAgentOS() {
           conflictResolutionStrategy: 'skip_conflicting',
         },
       },
-      tools: workbenchTools,
+      tools: {
+        ...workbenchTools,
+        getCurrentDateTime: createCurrentDateTimeTool(),
+      },
       toolOrchestratorConfig: {} as any,
       toolPermissionManagerConfig: {} as any,
       conversationManagerConfig: {} as any,

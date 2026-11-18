@@ -8,7 +8,7 @@ import type {
   ListPersonaFilters
 } from "@/lib/agentosTransport";
 import { LOCAL_WORKFLOW_DEFINITIONS, createLocalWorkflowPack } from "@/lib/localWorkflowLibrary";
-import { AgentOS } from "@framers/agentos";
+import { AgentOS, createCurrentDateTimeTool, DEFAULT_PROMPT_PROFILE_CONFIG } from "@framers/agentos";
 import type {
   AgentOSConfig as CoreAgentOSConfig,
   AgentOSInput,
@@ -132,7 +132,8 @@ const buildProviderConfig = (secrets: Record<string, string>): AIModelProviderMa
 const orchestratorConfig: AgentOSOrchestratorConfig = {
   maxToolCallIterations: 8,
   defaultAgentTurnTimeoutMs: 120_000,
-  enableConversationalPersistence: true
+  enableConversationalPersistence: true,
+  promptProfileConfig: DEFAULT_PROMPT_PROFILE_CONFIG
 };
 
 const conversationManagerConfig: ConversationManagerConfig = {
@@ -295,6 +296,7 @@ class EmbeddedRuntimeHost {
       gmiManagerConfig: this.buildGmiConfig(defaultProvider.providerId, defaultModelId),
       orchestratorConfig,
       promptEngineConfig,
+      tools: [createCurrentDateTimeTool()],
       toolOrchestratorConfig,
       toolPermissionManagerConfig,
       conversationManagerConfig,
