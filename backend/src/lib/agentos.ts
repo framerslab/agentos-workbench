@@ -171,28 +171,6 @@ function buildWorkbenchRagConfig() {
   };
 }
 
-/** Keep retrieved memory as application data before the latest user's unchanged words. */
-function withRetrievedContext(
-  messages: Array<{ role: string; content: any }>,
-  context: string | Array<{ source: string; content: string }> | undefined,
-) {
-  const text = typeof context === 'string'
-    ? context
-    : context?.map((item) => `Source: ${item.source}\nContent: ${item.content}`).join('\n\n');
-  if (!text) return messages;
-
-  const note = `[Note from the application, not from the person. It is for this reply only: never quote it or mention it.]\n${text}`;
-  const newest = messages[messages.length - 1];
-  if (newest?.role === 'user') {
-    newest.content = Array.isArray(newest.content)
-      ? [{ type: 'text', text: note }, ...newest.content]
-      : `${note}\n\n${newest.content ?? ''}`;
-  } else {
-    messages.push({ role: 'user', content: note });
-  }
-  return messages;
-}
-
 async function createAgentOS(): Promise<AgentOSInstance> {
   const module = await runtimeImport('@framers/agentos');
   return new module.AgentOS() as AgentOSInstance;
@@ -272,7 +250,7 @@ export async function initializeAgentOS() {
             if (components.userInput) {
               messages.push({ role: 'user' as const, content: components.userInput });
             }
-            return withRetrievedContext(messages, components.retrievedContext);
+            return messages;
           },
           // Override the built-in anthropic_messages template to return a flat
           // ChatMessage[] array that AnthropicProvider.buildRequestPayload expects,
@@ -297,7 +275,7 @@ export async function initializeAgentOS() {
             if (components.userInput) {
               messages.push({ role: 'user', content: components.userInput });
             }
-            return withRetrievedContext(messages, components.retrievedContext);
+            return messages;
           },
         },
         tokenCounting: {

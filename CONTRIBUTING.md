@@ -81,7 +81,7 @@ A turn that names a `model` carries `options.preferredModelId` and `options.pref
 
 ### Runtime defaults and memory context
 
-The backend and embedded browser host explicitly register `createCurrentDateTimeTool()` and pass `DEFAULT_PROMPT_PROFILE_CONFIG` to keep the date tool and concise prompt preset after the AgentOS 0.19 update. The browser keeps its explicit persistence settings; the backend uses direct `initialize()`, whose persistence default is unchanged. The backend's custom prompt templates carry retrieved memory as an application note before the person's unchanged words. The provider-routing suite also boots the real backend and checks tool execution and captured model requests with only provider HTTP calls stubbed.
+The backend and embedded browser host explicitly register `createCurrentDateTimeTool()` and pass `DEFAULT_PROMPT_PROFILE_CONFIG` to keep the date tool and concise prompt preset after the AgentOS 0.19 update. The browser keeps its explicit persistence settings; the backend uses direct `initialize()`, whose persistence default is unchanged. A turn's prompt comes from AgentOS's built-in `openai_chat` template, which puts retrieved memory in an application note before the person's unchanged words. The provider-routing suite also boots the real backend and checks tool execution and captured model requests with only provider HTTP calls stubbed.
 
 ### Browser storage
 
@@ -108,8 +108,6 @@ Write the subject in the imperative mood and keep each commit to one change.
 - Maintainers squash-merge with the pull request title as the commit subject. Give the title the Conventional Commits form.
 
 A weekly workflow, [`bump-framers-deps.yml`](https://github.com/framerslab/agentos-workbench/blob/master/.github/workflows/bump-framers-deps.yml), opens a pull request that moves the `@framers/*` version pins to the latest published versions and refreshes the npm lockfiles. It pushes the branch and opens the pull request with `FRAMERS_BUMP_TOKEN`, a personal token held as an organization secret, so CI and the link check run on the pull request as on any other. GitHub holds the runs of a pull request that the workflow's own token opens until a maintainer approves them.
-
-For a scoped backend dependency change, dispatch the same workflow on the change's branch with `backend_lockfile_only=true`. That mode resolves `backend/package-lock.json` with scripts disabled and uploads a `backend-lockfile` artifact; it does not run the weekly bump or open a pull request. Download that artifact and commit the generated lockfile with the manifest update.
 
 ## Automated review threads
 

@@ -26,12 +26,7 @@ name: Bump @framers/* deps
 on:
   schedule:
     - cron: '0 6 * * 1'  # Monday 06:00 UTC weekly
-  workflow_dispatch:
-    inputs:
-      backend_lockfile_only:
-        description: 'Resolve only the backend lockfile on the selected branch and upload it'
-        type: boolean
-        default: false
+  workflow_dispatch: {}
 
 # A second bump run waits for the first, so two runs never push the branch over
 # each other.
@@ -45,29 +40,7 @@ permissions:
   contents: read
 
 jobs:
-  backend-lockfile:
-    if: github.event_name == 'workflow_dispatch' && inputs.backend_lockfile_only
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          package-manager-cache: false
-      - name: Resolve backend lockfile
-        working-directory: backend
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - uses: actions/upload-artifact@v4
-        with:
-          name: backend-lockfile
-          path: backend/package-lock.json
-          retention-days: 7
-          if-no-files-found: error
-
   bump:
-    if: ${{ !inputs.backend_lockfile_only }}
     runs-on: ubuntu-latest
     # FRAMERS_BUMP_TOKEN reaches past this repository, and a step can change what a
     # later step of its job runs, so the lockfile refreshes run no package's install
