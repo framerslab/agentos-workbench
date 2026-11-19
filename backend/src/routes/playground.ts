@@ -104,12 +104,17 @@ function getStaticRuntime(): PlaygroundRuntimeModule {
 }
 
 /** Estimate USD cost given token counts and a model id. */
-function estimateCost(
+export function estimateCost(
   promptTokens: number,
   completionTokens: number,
   model?: string
 ): number {
+  // Per 1K tokens. gpt-6.2-sol, gpt-6.2-astra and gpt-6-luna from
+  // https://developers.openai.com/api/docs/pricing (read 2026-11-17).
   const INPUT_RATES: Record<string, number> = {
+    'gpt-6.2-sol': 0.002,
+    'gpt-6.2-astra': 0.008,
+    'gpt-6-luna': 0.0001,
     'gpt-4o': 0.0025,
     'gpt-4o-mini': 0.00015,
     'gpt-4-turbo': 0.01,
@@ -118,6 +123,9 @@ function estimateCost(
     'claude-sonnet-4': 0.003,
   };
   const OUTPUT_RATES: Record<string, number> = {
+    'gpt-6.2-sol': 0.01,
+    'gpt-6.2-astra': 0.04,
+    'gpt-6-luna': 0.0005,
     'gpt-4o': 0.01,
     'gpt-4o-mini': 0.0006,
     'gpt-4-turbo': 0.03,

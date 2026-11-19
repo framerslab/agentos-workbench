@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  estimateCost,
   getPlaygroundRuntimeMode,
   resolvePlaygroundRuntime,
 } from '../src/routes/playground';
@@ -54,4 +55,15 @@ test('getPlaygroundRuntimeMode reports live only when the required method exists
   assert.equal(getPlaygroundRuntimeMode({ generateText() {} }, 'generateText'), 'live');
   assert.equal(getPlaygroundRuntimeMode({}, 'streamText'), 'stub');
   assert.equal(getPlaygroundRuntimeMode(null, 'generateText'), 'stub');
+});
+
+test('estimateCost prices the GPT-6 models at their published per-1M rates', () => {
+  const close = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
+  // Input and output separately, so a swap between the two rates fails.
+  close(estimateCost(1_000_000, 0, 'gpt-6.2-sol'), 2.0);
+  close(estimateCost(0, 1_000_000, 'gpt-6.2-sol'), 10.0);
+  close(estimateCost(1_000_000, 0, 'gpt-6.2-astra'), 8.0);
+  close(estimateCost(0, 1_000_000, 'gpt-6.2-astra'), 40.0);
+  close(estimateCost(1_000_000, 0, 'gpt-6-luna'), 0.1);
+  close(estimateCost(0, 1_000_000, 'gpt-6-luna'), 0.5);
 });

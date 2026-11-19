@@ -53,7 +53,7 @@ interface ProviderInfo {
 const FALLBACK_PROVIDERS: ProviderInfo[] = [
   {
     id: 'openai', name: 'OpenAI', envVar: 'OPENAI_API_KEY', configured: false,
-    defaultModel: 'gpt-4o', models: ['gpt-4o', 'gpt-4o-mini', 'o1', 'o3-mini'],
+    defaultModel: 'gpt-4o', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6-luna'],
     capabilities: { streaming: true, toolCalling: true, vision: true, embedding: true },
     costTier: 3,
   },
