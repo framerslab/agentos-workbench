@@ -59,7 +59,11 @@ test('getPlaygroundRuntimeMode reports live only when the required method exists
 
 test('estimateCost prices the GPT-6 models at their published per-1M rates', () => {
   const close = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
-  close(estimateCost(1_000_000, 1_000_000, 'gpt-6.2-sol'), 12.0);
-  close(estimateCost(1_000_000, 1_000_000, 'gpt-6.2-astra'), 48.0);
-  close(estimateCost(1_000_000, 1_000_000, 'gpt-6-luna'), 0.6);
+  // Input and output separately, so a swap between the two rates fails.
+  close(estimateCost(1_000_000, 0, 'gpt-6.2-sol'), 2.0);
+  close(estimateCost(0, 1_000_000, 'gpt-6.2-sol'), 10.0);
+  close(estimateCost(1_000_000, 0, 'gpt-6.2-astra'), 8.0);
+  close(estimateCost(0, 1_000_000, 'gpt-6.2-astra'), 40.0);
+  close(estimateCost(1_000_000, 0, 'gpt-6-luna'), 0.1);
+  close(estimateCost(0, 1_000_000, 'gpt-6-luna'), 0.5);
 });
