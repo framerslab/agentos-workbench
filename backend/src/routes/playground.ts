@@ -104,7 +104,7 @@ function getStaticRuntime(): PlaygroundRuntimeModule {
 }
 
 /** Estimate USD cost given token counts and a model id. */
-function estimateCost(
+export function estimateCost(
   promptTokens: number,
   completionTokens: number,
   model?: string
