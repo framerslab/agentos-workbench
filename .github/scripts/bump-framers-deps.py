@@ -292,17 +292,20 @@ def yaml_code(line: str) -> str:
     """One YAML line with every quoted scalar emptied and its comment removed.
 
     A quote opens a scalar only where one can start: at the start of the
-    content or after whitespace, `:`, `,`, `[`, `{`, `-` or `?`, so the
-    apostrophe in a plain key such as `don't` is text. Inside single quotes
+    content, or after a `:` that ends a key, a `,`, `[` or `{`, or a `-` or
+    `?` indicator, with nothing but spaces between. Once a plain scalar has
+    begun, a quote inside it is text: the apostrophe in `don't`, the quote in
+    `ci ' staging`. Inside single quotes
     `''` is a quote; inside double quotes a backslash escapes the next
     character. A `#` starts a comment only outside a scalar and after
     whitespace.
     """
     out: list[str] = []
     i, n, prev = 0, len(line), " "
+    at_start = True  # no plain text since the start of the line or the last indicator
     while i < n:
         char = line[i]
-        if char in "'\"" and (prev.isspace() or prev in ":,[{-?"):
+        if char in "'\"" and at_start:
             i += 1
             while i < n:
                 if char == "'" and line[i] == "'":
@@ -318,14 +321,27 @@ def yaml_code(line: str) -> str:
                 i += 1
             out.append(char * 2)
             prev = char
+            at_start = False
             i += 1
             continue
         if char == "#" and prev.isspace():
             break
+        if not char.isspace():
+            following = line[i + 1] if i + 1 < n else " "
+            if char in ",[{":
+                at_start = True
+            elif char in ":-?" and following.isspace():
+                at_start = True if char == ":" or at_start else False
+            else:
+                at_start = False
         out.append(char)
         prev = char
         i += 1
     return "".join(out)
+
+
+# A JSON string key and string value, each with its escapes.
+OVERRIDE_PAIR = re.compile(r'"(?P<key>(?:[^"\\]|\\.)*)"\s*:\s*"(?P<value>(?:[^"\\]|\\.)*)"')
 
 
 def line_of(text: str, offset: int) -> int:
@@ -343,7 +359,26 @@ def bump_json_text(text: str, versions: dict[str, str], source: str = "<fixture>
     for each package because an earlier rewrite can shift offsets.
     """
     changes = 0
+    # An override that reads another package's range by reference
+    # (`"other": "$@framers/agentos"`) moves with that package, while the overridden
+    # package's own direct pin is read on its own, and npm requires the two to be
+    # equal. Both packages of such a pair keep every pin in this file. Keys and
+    # values are read as JSON reads them, so `\u0024` is a `$`.
+    frozen: set[str] = set()
+    start_paths = json_key_paths(text)
+    for m in OVERRIDE_PAIR.finditer(text):
+        if not any(field in start_paths.get(m.start(), ()) for field in OVERRIDE_FIELDS):
+            continue
+        key, value = decode_key(f'"{m.group("key")}"'), decode_key(f'"{m.group("value")}"')
+        if not value.startswith("$") or value[1:] == key:
+            continue
+        if value[1:] in versions or key in versions:
+            warn(source, line_of(text, m.start()),
+                 f"override of {key} reads {value[1:]}'s range; the pins of both in this file are left unchanged")
+            frozen.update({value[1:], key})
     for pkg, latest in versions.items():
+        if pkg in frozen:
+            continue
         paths = json_key_paths(text)
         nested = [m for m in json_nested_pattern(pkg).finditer(text)
                   if any(field in paths.get(m.start(), ()) for field in OVERRIDE_FIELDS)]
@@ -357,20 +392,13 @@ def bump_json_text(text: str, versions: dict[str, str], source: str = "<fixture>
 
         # A version-qualified override (`"@framers/agentos@>=0.9"`) still applies to the
         # release a direct pin moves to, and npm requires the two to be equal; the script
-        # does not rewrite such a key. An override that reads this package's range by
-        # reference (`"other": "$@framers/agentos"`) would move with it while the other
-        # package's own pin stays. Either way every pin of the package here stays.
+        # does not rewrite such a key, so every pin of the package here stays.
         qualified = [m for m in re.finditer(rf'"{re.escape(pkg)}@[^"]*"\s*:', text)
                      if any(field in paths.get(m.start(), ()) for field in OVERRIDE_FIELDS)]
-        referenced = [m for m in re.finditer(rf'"(?P<key>[^"]+)"\s*:\s*"\${re.escape(pkg)}"', text)
-                      if m.group("key") != pkg and any(field in paths.get(m.start(), ()) for field in OVERRIDE_FIELDS)]
-        if qualified or referenced:
+        if qualified:
             for m in qualified:
                 warn(source, line_of(text, m.start()),
                      f"version-qualified override for {pkg} not handled; its pins in this file are left unchanged")
-            for m in referenced:
-                warn(source, line_of(text, m.start()),
-                     f"override of {m.group('key')} reads {pkg}'s range; its pins in this file are left unchanged")
             continue
 
         # npm refuses an install whose flat override for a package differs from the
@@ -626,6 +654,13 @@ def self_check() -> None:
         # An override that reads this package's range by reference would move with it.
         ('{"dependencies": {"@framers/agentos": "^0.9.135", "other": "^0.9.135"}, "overrides": {"other": "$@framers/agentos"}}',
          "1:override of other reads @framers/agentos's range"),
+        # Both packages of a reference keep their pins: the overridden one would move alone.
+        ('{"dependencies": {"@framers/agentos": "^0.9.135", "@framers/sql-storage-adapter": "^0.6.1"},'
+         ' "overrides": {"@framers/sql-storage-adapter": "$@framers/agentos"}}',
+         "1:override of @framers/sql-storage-adapter reads @framers/agentos's range"),
+        # A reference spelled with a JSON escape for its `$` is the same reference.
+        ('{"dependencies": {"@framers/agentos": "^0.9.135", "other": "^0.9.135"}, "overrides": {"other": "\\u0024@framers/agentos"}}',
+         "1:override of other reads @framers/agentos's range"),
         # The key below is `overrides` with its first letter written as a JSON escape.
         ('{"' + chr(92) + 'u006fverrides": {"wunderland": {"@framers/agentos": "0.9.138"}}}',
          "1:override pins @framers/agentos under a parent (0.9.138)"),
@@ -743,6 +778,13 @@ def self_check() -> None:
         # A `#` inside a quoted key is part of the key.
         ("catalogs:\n  \"ci # staging\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
          "catalogs:\n  \"ci # staging\": {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
+         ["2:inline (flow) mapping not handled"]),
+        # A quote inside a plain key opens nothing, so the brace after it opens a flow mapping.
+        ("catalogs:\n  ci ' staging: {\n    '@framers/agentos': ^0.9.135\n  }\n",
+         "catalogs:\n  ci ' staging: {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
+         ["2:inline (flow) mapping not handled"]),
+        ("catalogs:\n  ci \"staging: {\n    '@framers/agentos': ^0.9.135\n  }\n",
+         "catalogs:\n  ci \"staging: {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
          ["2:inline (flow) mapping not handled"]),
         # An escaped quote does not close a double-quoted key.
         ("catalogs:\n  \"ci{\\\"}\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
