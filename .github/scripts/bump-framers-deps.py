@@ -42,6 +42,12 @@ the same package: npm requires the two to be equal and the peer range is
 never rewritten, so every pin of that package in the file stays. Reports
 are GitHub Actions warning annotations, so they show on the run summary.
 
+The YAML reader is a line scanner, not a YAML parser. A file shape it
+misreads either still moves a pin correctly or leaves a file pnpm cannot
+parse, and pnpm reads the file in the lockfile step or in the pull
+request's own checks, so a broken file stops the run or fails the pull
+request before it can merge.
+
 Only regular files are read; a tracked symbolic link is skipped with a
 warning. So is a manifest under a folder named `vendor`, `vendored` or
 `third_party`: a vendored copy is kept byte for byte.
@@ -295,7 +301,8 @@ def yaml_code(line: str) -> str:
     content, or after a `:` that ends a key, a `,`, `[` or `{`, or a `-` or
     `?` indicator, with nothing but spaces between. Once a plain scalar has
     begun, a quote inside it is text: the apostrophe in `don't`, the quote in
-    `ci ' staging`. Inside single quotes
+    `ci ' staging`. An anchor or a tag before the content keeps it at its
+    start. Inside single quotes
     `''` is a quote; inside double quotes a backslash escapes the next
     character. A `#` starts a comment only outside a scalar and after
     whitespace.
@@ -305,6 +312,14 @@ def yaml_code(line: str) -> str:
     at_start = True  # no plain text since the start of the line or the last indicator
     while i < n:
         char = line[i]
+        if char in "&!" and at_start:
+            # A node property (an anchor or a tag) comes before the content it
+            # marks, so the content may still open with a quote.
+            while i < n and not line[i].isspace():
+                out.append(line[i])
+                i += 1
+            prev = line[i - 1]
+            continue
         if char in "'\"" and at_start:
             i += 1
             while i < n:
@@ -785,6 +800,13 @@ def self_check() -> None:
          ["2:inline (flow) mapping not handled"]),
         ("catalogs:\n  ci \"staging: {\n    '@framers/agentos': ^0.9.135\n  }\n",
          "catalogs:\n  ci \"staging: {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
+         ["2:inline (flow) mapping not handled"]),
+        # An anchor or a tag before a quoted key leaves the key quoted.
+        ("catalogs:\n  &k \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
+         "catalogs:\n  &k \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
+         ["2:inline (flow) mapping not handled"]),
+        ("catalogs:\n  !!str \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
+         "catalogs:\n  !!str \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
          ["2:inline (flow) mapping not handled"]),
         # An escaped quote does not close a double-quoted key.
         ("catalogs:\n  \"ci{\\\"}\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
