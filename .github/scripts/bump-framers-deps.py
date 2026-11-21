@@ -25,7 +25,9 @@ paths (`../agentos`, `./shim.js`, patch files), git and GitHub specs,
 dist-tags (`next`), npm `$name` references, pnpm's `-` (remove), YAML
 anchors and aliases, and any range that already reaches past `latest`
 (such as a prerelease from the `next` channel), so a pin never moves
-backwards. Version-qualified selector keys such as
+backwards. A range whose strict lower bound sits at or above `latest`
+(`>0.10.28` when latest is 0.10.28) is left alone too, since `^latest`
+would admit the release it excludes. Version-qualified selector keys such as
 `"@framers/agentos@<0.10"` are not matched, because they target only the
 copies inside that range.
 
@@ -35,8 +37,14 @@ parent's key) are reported, not rewritten: they hold one consumer on a chosen ve
 purpose, and moving them is a decision for a person. Pins this script
 cannot rewrite safely (a nested npm override object, a YAML flow mapping,
 anchor or alias, a plain value continued on the next line) are reported
-the same way. Reports are GitHub Actions warning annotations, so
-they show on the run summary.
+the same way, and so is a flat npm override beside a root peer range for
+the same package: npm requires the two to be equal and the peer range is
+never rewritten, so every pin of that package in the file stays. Reports
+are GitHub Actions warning annotations, so they show on the run summary.
+
+Only regular files are read; a tracked symbolic link is skipped with a
+warning. So is a manifest under a folder named `vendor`, `vendored` or
+`third_party`: a vendored copy is kept byte for byte.
 
 Only files tracked by git are read, so `node_modules`, build output and
 the contents of git submodules are never touched: the pull request this
@@ -45,7 +53,8 @@ describe the manifests that are committed.
 
 The script checks its own rules against fixtures before it touches any
 file and exits 1 if a rule misbehaves, so a broken edit to this file fails
-the run instead of opening a wrong pull request. It also exits 1 when npm
+the run instead of opening a wrong pull request (`--self-check` runs that
+check alone and stops). It also exits 1 when npm
 fails for any package for a reason other than "not published", so a
 registry outage cannot pass as a clean run with stale pins.
 
@@ -74,7 +83,10 @@ YAML_DEP_PATTERN = re.compile(rf"""['"]?(?:[^'"\s:]*[>/])?({NAME})['"]?\s*:""")
 # operator and `=` is only an operator (never a version prefix), so every
 # comparator has exactly one parse and a failing match cannot backtrack
 # exponentially.
-_VER = r"v?(?:\d+|[xX*])(?:\.(?:\d+|[xX*])){0,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?"
+# A prerelease or build suffix follows a full three-part version only, as in
+# node-semver: `1-release` is a dist-tag, not the version 1 with a prerelease.
+_PART = r"(?:\d+|[xX*])"
+_VER = rf"v?{_PART}(?:\.{_PART}(?:\.{_PART}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)?)?"
 _CMP = rf"(?:(?:\^|~>?|[<>]=?|=)\s*)?{_VER}"
 _SET = rf"(?:{_VER}\s+-\s+{_VER}|{_CMP}(?:\s+{_CMP})*)"
 RANGE_RE = re.compile(rf"\s*{_SET}(?:\s*\|\|\s*{_SET})*\s*", re.ASCII)
@@ -85,6 +97,9 @@ VERSION_TOKEN = re.compile(
     r"(?<![\w.])[v=]?(\d+)(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
     re.ASCII,
 )
+
+# A strict lower bound (`>1.2.3`, `> 1.2`), with the parts it names; `~>` is the tilde operator.
+STRICT_LOWER = re.compile(r"(?<!~)>(?!=)\s*v?(\d+)(?:\.(\d+))?(?:\.(\d+)(-[0-9A-Za-z.-]+)?)?", re.ASCII)
 
 # Byte-order mark, written as a code point so no invisible character sits in this file.
 BOM = chr(0xFEFF)
@@ -130,6 +145,25 @@ def mentions_newer(spec: str, latest: str) -> bool:
     return False
 
 
+def excludes_latest(spec: str, latest: str) -> bool:
+    """True when a strict lower bound in `spec` sits at or above `latest`.
+
+    `>0.10.28` admits nothing up to 0.10.28, and `>0.10` nothing in 0.10.x, so
+    `^latest` would admit a release the range was written to exclude. Only the
+    parts the bound names are compared, and a bound on a prerelease of latest
+    itself excludes nothing.
+    """
+    top = tuple(int(part) for part in latest.split("."))
+    for match in STRICT_LOWER.finditer(spec):
+        named = tuple(int(g) for g in match.groups()[:3] if g is not None)
+        # A release is above its own prereleases: `>0.10.28-beta.0` admits 0.10.28.
+        if match.group(4) and named == top:
+            continue
+        if named >= top[:len(named)]:
+            return True
+    return False
+
+
 # Specifiers that are deliberately not a registry range: protocols, `-`,
 # npm `$name` references, paths and git shorthands (they contain `/`), and
 # dist-tags. Anything else that fails the range grammar was misread.
@@ -151,8 +185,9 @@ def is_deliberate_specifier(spec: str) -> bool:
 
 
 def should_rewrite(spec: str, latest: str) -> bool:
-    """A pin moves to `^latest` only when it is a range that does not reach past latest."""
-    return spec != f"^{latest}" and is_registry_range(spec) and not mentions_newer(spec, latest)
+    """A pin moves to `^latest` only when it is a range that neither reaches past latest nor excludes it from below."""
+    return (spec != f"^{latest}" and is_registry_range(spec)
+            and not mentions_newer(spec, latest) and not excludes_latest(spec, latest))
 
 
 # package.json fields whose entries force versions across the install.
@@ -271,6 +306,21 @@ def bump_json_text(text: str, versions: dict[str, str], source: str = "<fixture>
                      f"nested override for {pkg} not handled; its pins in this file are left unchanged")
             continue
 
+        # npm refuses an install whose flat override for a package differs from the
+        # root's own range for it (EOVERRIDE). The root's peer range is never
+        # rewritten, so beside one the override, and with it every pin of the
+        # package in this file, stays where it is.
+        pins = list(json_pin_pattern(pkg).finditer(text))
+        flat_overrides = [m for m in pins if m.group("prefix") is None
+                          and paths.get(m.start(), ()) in (("overrides",), ("", "overrides"))]
+        if (flat_overrides and any(in_peer_field(paths.get(m.start(), ())) for m in pins)
+                and any(should_rewrite(m.group("spec"), latest) for m in pins
+                        if not in_peer_field(paths.get(m.start(), ())))):
+            for m in flat_overrides:
+                warn(source, line_of(text, m.start()),
+                     f"override for {pkg} sits beside a root peer range it must equal; its pins in this file are left unchanged")
+            continue
+
         def replace(match: re.Match[str], _pkg: str = pkg, _latest: str = latest,
                     _paths: dict[int, tuple[str, ...]] = paths) -> str:
             nonlocal changes
@@ -349,7 +399,9 @@ def bump_yaml_text(text: str, versions: dict[str, str], source: str = "<fixture>
             # by line, so report and skip them through the closing bracket.
             if re.match(r"""^\s*(?:\S[^#]*?:\s*)?(?:[&!]\S*\s+)*[{\[]""", line):
                 span = [line]
-                code = re.sub(r"\s#.*$", "", line)
+                # Quoted text first, so a bracket or a `#` inside a key is not counted.
+                code = re.sub(r"""'[^']*'|"[^"]*\"""", "", line)
+                code = re.sub(r"\s#.*$", "", code)
                 depth = code.count("{") + code.count("[") - code.count("}") - code.count("]")
                 if depth > 0:
                     flow_indent = indent
@@ -431,6 +483,12 @@ def self_check() -> None:
         '"@framers/agentos": "$@framers/agentos"',
         '"@framers/agentos": "-"',
         '"@framers/agentos": "next"',
+        # A dist-tag may start with a digit; npm reads neither of these as a range.
+        '"@framers/agentos": "0-release"',
+        '"@framers/agentos": "1-release"',
+        # A strict lower bound at latest admits nothing up to latest.
+        '"@framers/agentos": ">0.10.28"',
+        '"@framers/agentos": ">0.10"',
         '"@framers/agentos": "./src/shims/agentos.browser.js"',
         '"@framers/agentos": "../agentos"',
         '"@framers/agentos": "framersai/agentos#feat"',
@@ -455,6 +513,10 @@ def self_check() -> None:
         ('"@framers/agentos": "0.10.0"', '"@framers/agentos": "^0.10.28"'),
         ('"@framers/agentos": ">=0.7.0"', '"@framers/agentos": "^0.10.28"'),
         ('"@framers/agentos": ">= 0.7.0"', '"@framers/agentos": "^0.10.28"'),
+        ('"@framers/agentos": ">0.9"', '"@framers/agentos": "^0.10.28"'),
+        ('"@framers/agentos": "~>0.10.20"', '"@framers/agentos": "^0.10.28"'),
+        # A release is above its own prereleases, so this bound admits latest.
+        ('"@framers/agentos": ">0.10.28-beta.0"', '"@framers/agentos": "^0.10.28"'),
         ('"@framers/agentos": ">=0.9.0 <0.10.0"', '"@framers/agentos": "^0.10.28"'),
         ('"@framers/agentos": "^0.9.0 || ^0.10.0"', '"@framers/agentos": "^0.10.28"'),
         ('"@framers/agentos": "0.10.0-beta.12"', '"@framers/agentos": "^0.10.28"'),
@@ -480,6 +542,13 @@ def self_check() -> None:
          "1:override pins @framers/agentos under a parent (0.9.138)"),
         ('{"dependencies": {"@framers/agentos": "^0.9.135"}, "overrides": {"@framers/agentos": {".": "^0.9.135"}}}',
          "1:nested override for @framers/agentos not handled"),
+        # npm refuses a flat override that differs from the root's own range for the
+        # package, and the peer range stays, so nothing of the package moves.
+        ('{"peerDependencies": {"@framers/agentos": "^0.9.135"}, "overrides": {"@framers/agentos": "^0.9.135"}}',
+         "1:override for @framers/agentos sits beside a root peer range it must equal"),
+        ('{"dependencies": {"@framers/agentos": "^0.9.135"}, "peerDependencies": {"@framers/agentos": "^0.9.135"},'
+         ' "overrides": {"@framers/agentos": "^0.9.135"}}',
+         "1:override for @framers/agentos sits beside a root peer range it must equal"),
         # The key below is `overrides` with its first letter written as a JSON escape.
         ('{"' + chr(92) + 'u006fverrides": {"wunderland": {"@framers/agentos": "0.9.138"}}}',
          "1:override pins @framers/agentos under a parent (0.9.138)"),
@@ -586,6 +655,10 @@ def self_check() -> None:
          ["2:could not read this pin"]),
         ("catalogs:\n  other: {\n    lodash: ^4.17.21\n  }\n  main:\n    '@framers/agentos': ^0.9.135\n",
          "catalogs:\n  other: {\n    lodash: ^4.17.21\n  }\n  main:\n    '@framers/agentos': '^0.10.28'\n", 1, []),
+        # A bracket inside a quoted key is not part of the flow mapping's depth.
+        ("catalogs:\n  \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n",
+         "catalogs:\n  \"ci}\": {\n    '@framers/agentos': ^0.9.135\n  }\n", 0,
+         ["2:inline (flow) mapping not handled"]),
         ("overrides:\n  '@framers/sql-storage-adapter': 0.6.1\n  wunderland:\n    '@framers/agentos': 0.9.138\n",
          "overrides:\n  '@framers/sql-storage-adapter': '^0.6.8'\n  wunderland:\n    '@framers/agentos': 0.9.138\n", 1,
          ["4:override pins @framers/agentos under a parent (0.9.138)"]),
@@ -615,6 +688,48 @@ def self_check() -> None:
         got, n = bump_yaml_text(given, versions, warn=collect)
         if got != want or n != want_n or warnings != want_warnings:
             failures.append(f"pnpm-workspace.yaml: {given!r} -> {got!r} ({n} changes, warnings {warnings})")
+
+    class _Proc:
+        def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+    def fake_npm(argv: list[str], **_kwargs: object) -> _Proc:
+        """npm view against a fixed registry: one package absent, one whose latest tag names a missing version."""
+        if argv[1] == "dist-tag":
+            # The tag listing reads no version; it answers for any package the registry holds.
+            # The registry answers 401 for the tags of a scoped package it does not hold.
+            if argv[3] == "@framers/gone":
+                return _Proc(1, stderr="npm error code E401")
+            if argv[3] == "@framers/flaky":
+                # The registry's own text may name another code; only npm's code line counts.
+                return _Proc(1, stderr="npm error code E500\nnpm error 500 Internal Server Error - upstream answered E404")
+            return _Proc(0, stdout="latest: 9.9.9\n")
+        target = argv[2]
+        # A package with a stale latest tag and only a prerelease left: no view spec matches.
+        # @framers/flaky is the same package on a day the tag listing fails.
+        if target.startswith(("@framers/pre-only", "@framers/flaky")):
+            return _Proc(1, stderr="npm error code E404")
+        # npm view resolves the latest tag for a bare name and for `@*` alike, so both
+        # fail like `@latest` does; a real range is matched against the versions.
+        if target in ("@framers/gone@latest", "@framers/gone", "@framers/gone@*", "@framers/gone@>=0.0.0",
+                      "@framers/stale-tag@latest", "@framers/stale-tag", "@framers/stale-tag@*"):
+            return _Proc(1, stderr="npm error code E404")
+        if target == "@framers/stale-tag@>=0.0.0":
+            return _Proc(0, stdout="@framers/stale-tag\n")
+        return _Proc(0, stdout="1.2.3\n")
+
+    resolved, failed = query_latest_versions(
+        ["@framers/flaky", "@framers/gone", "@framers/ok", "@framers/pre-only", "@framers/stale-tag"],
+        run=fake_npm, say=lambda _message: None)
+    if resolved != {"@framers/ok": "1.2.3"} or failed != ["@framers/flaky", "@framers/pre-only", "@framers/stale-tag"]:
+        failures.append(f"npm view: resolved {resolved}, failed {failed}; want @framers/ok at 1.2.3, "
+                        "@framers/gone skipped, @framers/flaky, @framers/pre-only and @framers/stale-tag failed")
+    for name, want in [("tools/vendor/analytics-consent/package.json", True),
+                       ("third_party/x/pnpm-workspace.yaml", True),
+                       ("packages/vendor-tools/package.json", False),
+                       ("package.json", False)]:
+        if is_vendored(name) != want:
+            failures.append(f"vendored paths: is_vendored({name!r}) is {is_vendored(name)}, want {want}")
     if failures:
         print("self-check failed:\n" + "\n".join(failures), file=sys.stderr)
         sys.exit(1)
@@ -636,6 +751,19 @@ def write_text(path: Path, text: str) -> None:
         handle.write(text)
 
 
+# Folder names that hold a copy of someone else's files.
+VENDOR_DIRS = ("vendor", "vendored", "third_party")
+
+
+def is_vendored(name: str) -> bool:
+    """True when a tracked path lies under a folder that holds vendored copies.
+
+    A vendored manifest is a copy kept byte for byte, often pinned by a hash;
+    its pins belong to the place it was copied from.
+    """
+    return any(part in VENDOR_DIRS for part in Path(name).parts[:-1])
+
+
 def tracked_files() -> tuple[list[Path], list[Path]]:
     """Every tracked package.json and pnpm-workspace.yaml in this repository.
 
@@ -649,7 +777,20 @@ def tracked_files() -> tuple[list[Path], list[Path]]:
     if result.returncode != 0:
         print(f"git ls-files failed: {result.stderr.strip()}", file=sys.stderr)
         sys.exit(1)
-    paths = [Path(p) for p in result.stdout.split("\0") if p]
+    paths = []
+    for name in result.stdout.split("\0"):
+        if not name:
+            continue
+        path = Path(name)
+        # Reading or writing through a tracked link would change its target, which
+        # may be a file the pull request cannot commit.
+        if path.is_symlink():
+            annotate(name, 1, "skipped, a symbolic link; only regular tracked files are rewritten")
+            continue
+        if is_vendored(name):
+            annotate(name, 1, "skipped, a vendored copy; its pins are set where it was copied from")
+            continue
+        paths.append(path)
     return ([p for p in paths if p.name == "package.json"],
             [p for p in paths if p.name == "pnpm-workspace.yaml"])
 
@@ -663,34 +804,80 @@ def find_framers_deps(texts: dict[Path, str]) -> list[str]:
     return sorted(deps)
 
 
-def query_latest_versions(pkgs: list[str]) -> tuple[dict[str, str], list[str]]:
+# The line on which npm states an error's primary code (`npm ERR! code` before npm 10).
+_NPM_CODE = re.compile(r"^npm (?:error|ERR!) code (\S+)\s*$", re.MULTILINE)
+
+
+def npm_code(stderr: str) -> str:
+    """The primary error code npm reported, or "" when it reported none.
+
+    Read from npm's own code line, never from the rest of the output, which
+    can quote registry text that names another code.
+    """
+    match = _NPM_CODE.search(stderr)
+    return match.group(1) if match else ""
+
+
+def _say(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def query_latest_versions(pkgs: list[str], run: Callable = subprocess.run,
+                          say: Callable[[str], None] = _say) -> tuple[dict[str, str], list[str]]:
     """Look up the `latest` dist-tag of each package.
 
     Returns the resolved versions and the packages npm failed on. A package
-    npm reports as not published (E404), or whose `latest` is not a plain
-    release, is skipped; any other failure is returned so the run can fail.
+    the registry does not hold (E404 for the package itself), or whose
+    `latest` is not a plain release, is skipped; any other failure, an E404
+    for the `latest` tag of a published package among them, is returned so
+    the run can fail.
     """
     versions: dict[str, str] = {}
     failed: list[str] = []
     for pkg in pkgs:
         try:
-            proc = subprocess.run(
+            proc = run(
                 ["npm", "view", f"{pkg}@latest", "version"],
                 capture_output=True, text=True, timeout=60,
             )
         except (subprocess.TimeoutExpired, OSError) as error:
-            print(f"  {pkg}: npm failed ({type(error).__name__})", file=sys.stderr)
+            say(f"  {pkg}: npm failed ({type(error).__name__})")
             failed.append(pkg)
             continue
         ver = proc.stdout.strip()
         if proc.returncode == 0 and re.fullmatch(r"\d+\.\d+\.\d+", ver):
             versions[pkg] = ver
-        elif "E404" in proc.stderr:
-            print(f"  skipped {pkg}: not published", file=sys.stderr)
+        elif npm_code(proc.stderr) == "E404":
+            # npm answers E404 both for a package the registry does not hold and for
+            # one whose `latest` tag names a version it no longer serves. Only the
+            # first is skipped; the second fails the run before anything is written.
+            # The probe asks for a real range (`@>=0.0.0`), which npm matches against
+            # the published versions. A bare name and `@*` both resolve `latest`
+            # again (npm view reads the tag unless the spec is something other
+            # than `*`) and would answer E404 for the stale tag too.
+            try:
+                probe = run(["npm", "view", f"{pkg}@>=0.0.0", "name"], capture_output=True, text=True, timeout=60)
+                absent = probe.returncode != 0 and npm_code(probe.stderr) == "E404"
+                # A range matches no prerelease, so a package left with prereleases
+                # alone fails that probe too. The tag listing reads no version: when
+                # it answers, the registry holds the package. The registry answers
+                # it with 401 or 404 for a package it does not hold; any other
+                # failure is a registry error and proves nothing, so the run fails.
+                if absent:
+                    tags = run(["npm", "dist-tag", "ls", pkg], capture_output=True, text=True, timeout=60)
+                    if tags.returncode == 0 or npm_code(tags.stderr) not in ("E401", "E404"):
+                        absent = False
+            except (subprocess.TimeoutExpired, OSError):
+                absent = False
+            if absent:
+                say(f"  skipped {pkg}: not published")
+            else:
+                say(f"  {pkg}: its latest tag resolves to no version (E404) and the registry did not confirm the package is unpublished")
+                failed.append(pkg)
         elif proc.returncode == 0:
-            print(f"  skipped {pkg}: latest is not a plain release ({ver!r})", file=sys.stderr)
+            say(f"  skipped {pkg}: latest is not a plain release ({ver!r})")
         else:
-            print(f"  {pkg}: npm failed: {proc.stderr.strip()[:200]}", file=sys.stderr)
+            say(f"  {pkg}: npm failed: {proc.stderr.strip()[:200]}")
             failed.append(pkg)
     return versions, failed
 
@@ -706,6 +893,9 @@ def bump_path(path: Path, text: str, versions: dict[str, str]) -> int:
 
 def main() -> int:
     self_check()
+    if "--self-check" in sys.argv[1:]:
+        print("self-check passed", file=sys.stderr)
+        return 0
     pkg_files, yaml_files = tracked_files()
     texts = {path: text for path in pkg_files + yaml_files if (text := read_text(path)) is not None}
     framers_deps = find_framers_deps(texts)
